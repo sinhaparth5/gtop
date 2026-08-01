@@ -9,7 +9,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-pre--alpha-BF616A?style=for-the-badge&labelColor=2E3440" alt="Status: pre-alpha">
-  <img src="https://img.shields.io/badge/roadmap-17%2F123_tasks-3B4252?style=for-the-badge&labelColor=2E3440" alt="Roadmap: 17 of 123 tasks">
+  <img src="https://img.shields.io/badge/roadmap-29%2F123_tasks-3B4252?style=for-the-badge&labelColor=2E3440" alt="Roadmap: 29 of 123 tasks">
   <img src="https://img.shields.io/badge/license-GPL--3.0-A3BE8C?style=for-the-badge&logo=gnu&logoColor=white&labelColor=2E3440" alt="License: GPL-3.0">
 </p>
 
@@ -30,22 +30,25 @@
 
 ---
 
-> ### Project status: platform layer done, no telemetry yet
+> ### Project status: skeleton done, no telemetry yet
 >
-> Phase 1 of the roadmap is complete: runtime library loading, host identity,
-> process control, and terminal capability detection, with tests passing under
-> ASan and UBSan. The Windows build is verified by cross-compiling with
+> Phases 1 and 2 are complete. The platform layer does runtime library loading,
+> host identity, process control, and terminal capability detection. Above it
+> sit the `IGpuDriver` contract, a device registry that de-duplicates and orders
+> GPUs and survives one disappearing mid-run, and `--dump-json`. Tests pass
+> under ASan and UBSan; the Windows build is verified by cross-compiling with
 > mingw-w64 — it compiles and links, FTXUI included, but has never been run on
 > Windows.
 >
-> No GPU backend exists, so the binary prints what it detected about the host
-> and exits.
+> **No vendor backend exists yet**, so the registry finds nothing and the binary
+> says so. That is the empty-system path working, not a crash — but it does mean
+> nothing here reports a real number.
 >
 > [`ROADMAP.md`](ROADMAP.md) carries the plan: architecture, 123 tracked tasks
 > across 9 phases, vendor API entry points, and the traps that come with each.
 >
 > Everything below describes the target. The code does not do it yet, and there
-> is nothing installable. Watch the repo if you want to know when M1 lands.
+> is nothing installable. Watch the repo if you want to know when M2 lands.
 
 ---
 
@@ -188,7 +191,7 @@ Progress is tracked as 123 checkboxes in [`ROADMAP.md`](ROADMAP.md).
 | Phase | Focus | Progress |
 | :--- | :--- | :--- |
 | 1 | Foundation & platform abstraction | `██████████` 17 / 17 |
-| 2 | Driver abstraction & runtime loading | `░░░░░░░░░░` 0 / 12 |
+| 2 | Driver abstraction & runtime loading | `██████████` 12 / 12 |
 | 3 | Vendor backends — NVIDIA, AMD, Intel | `░░░░░░░░░░` 0 / 33 |
 | 4 | Per-process attribution | `░░░░░░░░░░` 0 / 10 |
 | 5 | Braille rendering engine | `░░░░░░░░░░` 0 / 12 |
@@ -207,6 +210,7 @@ cmake --preset linux-release      # or windows-release
 cmake --build --preset linux-release
 ctest --preset linux-release
 ./build/linux-release/bin/gtop
+./build/linux-release/bin/gtop --dump-json   # headless: one sample, no terminal
 ```
 
 There is also a `windows-mingw` preset that cross-compiles the Windows build

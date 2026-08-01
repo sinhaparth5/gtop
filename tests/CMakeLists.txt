@@ -21,6 +21,18 @@ gtop_add_test(gtop_tokens_test unit/tokens_test.cpp)
 target_link_libraries(gtop_tokens_test PRIVATE gtop_render)
 add_test(NAME tokens COMMAND gtop_tokens_test)
 
+gtop_add_test(gtop_core_test unit/core_test.cpp)
+target_link_libraries(gtop_core_test PRIVATE gtop_core gtop_warnings)
+add_test(NAME core COMMAND gtop_core_test)
+
+# The mock backend lives in tests/mock/ rather than src/, so it cannot end up
+# linked into the shipping binary. This include path is what makes it reachable
+# as "mock/mock_driver.hpp".
+gtop_add_test(gtop_driver_test unit/driver_test.cpp)
+target_link_libraries(gtop_driver_test PRIVATE gtop_driver gtop_warnings)
+target_include_directories(gtop_driver_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+add_test(NAME driver COMMAND gtop_driver_test)
+
 gtop_add_test(gtop_platform_test unit/platform_test.cpp)
 target_link_libraries(gtop_platform_test PRIVATE gtop_platform gtop_warnings)
 add_test(NAME platform COMMAND gtop_platform_test)

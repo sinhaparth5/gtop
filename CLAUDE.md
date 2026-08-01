@@ -2,16 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status: Phase 1 complete (17/123), no telemetry yet
+## Project status: Phases 1–2 complete (29/123), no telemetry yet
 
-**No GPU backend, canvas, or UI is implemented.** `main.cpp` prints what the
-platform layer detected about the host and exits.
+**No vendor backend, canvas, or UI is implemented.** `builtin_backends()` in
+`src/driver/driver_registry.cpp` returns an empty list, so the registry finds
+nothing and the binary says so — which is the same code path as a machine with
+no drivers, and is a deliberate Phase 2 exit criterion rather than a gap.
 
 What is real today: the build system and presets, `src/render/tokens/`
-(complete), and `src/platform/` (complete — `DynamicLibrary`, `SystemInfo`,
-`ProcessControl`, `TerminalSession`). Two test suites pass, including under
-ASan/UBSan. Phase 2 is next: `IGpuDriver`, the driver registry, and
-`--dump-json`.
+(complete), `src/platform/` (complete — `DynamicLibrary`, `SystemInfo`,
+`ProcessControl`, `TerminalSession`), `src/core/` (types, config, JSON export)
+and `src/driver/` (the `IGpuDriver` contract and `DriverRegistry`). Four test
+suites pass, including under ASan/UBSan. Phase 3 is next: the NVML backend,
+which covers two of the six support cells with one implementation.
+
+`--dump-json` already works and is the intended way to check every backend from
+here on — it needs no terminal and exits 0 with an empty `devices` array on a
+machine with no GPU.
 
 Caveat that matters: `src/platform/win32/` compiles, but **nothing Windows has
 ever been run.** The `windows-mingw` preset cross-builds the whole tree
@@ -145,7 +152,7 @@ x86_64-w64-mingw32-objdump -p build/windows-mingw/bin/gtop.exe | grep 'DLL Name'
 Verify counts rather than trusting them:
 
 ```bash
-grep -c '^- \[x\]'   ROADMAP.md   # completed — currently 17
+grep -c '^- \[x\]'   ROADMAP.md   # completed — currently 29
 grep -c '^- \[[ x]\]' ROADMAP.md   # total (must equal the dashboard denominator) — 123
 ```
 
@@ -177,11 +184,36 @@ for implementation — do not re-derive or assume otherwise without re-checking.
   counters), and `drm-total-*`. Same keys on `amdgpu`, so build it once as shared
   infrastructure for both Intel and AMD.
 
+## Writing a vendor backend
+
+Phase 2 fixed the shape every backend has to fit. Four things are contract, not
+convention:
+
+- **Register in `builtin_backends()`** (`src/driver/driver_registry.cpp`), one
+  line per vendor. Probe order is NVIDIA → AMD → Intel and it is *load-bearing*:
+  it decides which backend keeps a GPU that two of them can see.
+- **`static_info().pci_bus_id` is the identity key.** Feed it whatever the
+  vendor gives you — `core::normalise_pci_bus_id` canonicalises NVML's
+  eight-digit domain, sysfs's four, and lspci's none into one string. Without an
+  address, supply a `uuid`; with neither, the device is kept but can never be
+  de-duplicated.
+- **`power_state()` must not wake the device.** Answer from sysfs
+  `runtime_status` or answer `kUnknown`. The registry skips `sample()` entirely
+  on a suspended device, which is the only thing keeping gtop off a hybrid
+  laptop's battery.
+- **`sample()` must not throw and must not signal failure.** Unreadable metric →
+  leave the optional unset. `healthy()` goes false only when the device is
+  genuinely gone, because that retires the driver.
+
+`--dump-json` key names are a published interface — CI and the vendor-comparison
+scripts parse them. Add keys freely; renaming one breaks somebody silently.
+
 ## Implementation sequencing
 
-Build `--dump-json` (headless single-sample mode) in Phase 2, **not later** — it
-is the CI harness, the vendor-tool comparison mechanism, and the debugging tool
-for every subsequent phase.
+`--dump-json` (headless single-sample mode) exists as of Phase 2, deliberately
+ahead of any backend — it is the CI harness, the vendor-tool comparison
+mechanism, and the debugging tool for every subsequent phase. Use it rather than
+adding print statements to a backend.
 
 Recommended order is M1 → M2 → M3 → M4 (72 of the 123 tasks), which yields a
 working single-GPU monitor; the rest is breadth. NVIDIA goes first because NVML's

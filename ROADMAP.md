@@ -11,14 +11,14 @@ with tracked progress.
 
 ## 📊 Progress Dashboard
 
-**Overall: 17 / 123 tasks complete (14%)**
+**Overall: 29 / 123 tasks complete (24%)**
 
-`██▓░░░░░░░░░░░░░░░░░` 14%
+`████▓░░░░░░░░░░░░░░░` 24%
 
 | # | Phase | Done | Total | Status |
 | --- | --- | --- | --- | --- |
 | 1 | Foundation & Platform Abstraction | 17 | 17 | ✅ Complete |
-| 2 | Driver Abstraction & Runtime Loading | 0 | 12 | ⬜ Not started |
+| 2 | Driver Abstraction & Runtime Loading | 12 | 12 | ✅ Complete |
 | 3 | Vendor Backends (NVIDIA / AMD / Intel) | 0 | 33 | ⬜ Not started |
 | 4 | Per-Process Attribution | 0 | 10 | ⬜ Not started |
 | 5 | Braille Rendering Engine | 0 | 12 | ⬜ Not started |
@@ -124,32 +124,34 @@ original blueprint and exists solely to keep cross-platform support from leaking
 ```
 gtop/
 ├── CMakeLists.txt
-├── cmake/Dependencies.cmake          # FetchContent: FTXUI, Catch2
+├── cmake/  Dependencies.cmake · CompilerWarnings.cmake · toolchains/
 ├── third_party/vendor_headers/       # nvml.h, adlx, ze_api.h — HEADERS ONLY
 ├── src/
 │   ├── main.cpp
 │   ├── platform/                     # ← all #ifdef lives here
-│   │   ├── dynamic_library.hpp       #   dlopen  | LoadLibrary
-│   │   ├── dynamic_library_posix.cpp
-│   │   ├── dynamic_library_win32.cpp
-│   │   ├── sys_info.hpp/_posix/_win32      # hostname, OS version
-│   │   ├── process_control.hpp/_posix/_win32  # names, signal/terminate
-│   │   └── terminal_setup.hpp/_posix/_win32   # VT mode, UTF-8, resize
+│   │   ├── dynamic_library.{hpp,cpp} #   dlopen | LoadLibrary
+│   │   ├── sys_info.hpp              #   hostname, OS version
+│   │   ├── process_control.hpp       #   names, signal/terminate
+│   │   ├── terminal_setup.{hpp,cpp}  #   VT mode, UTF-8, resize
+│   │   ├── posix/                    #   one .cpp per header — chosen by CMake,
+│   │   └── win32/                    #   never by the preprocessor
 │   ├── core/
-│   │   ├── types.hpp                 # DeviceSample, ProcessInfo, GpuStaticInfo
-│   │   ├── state_engine.{hpp,cpp}
-│   │   ├── history_ring.hpp
-│   │   └── config.{hpp,cpp}
+│   │   ├── types.{hpp,cpp}           # DeviceSample, GpuStaticInfo, ProcessInfo
+│   │   ├── config.{hpp,cpp}          # CLI arguments
+│   │   ├── json_export.{hpp,cpp}     # --dump-json
+│   │   ├── version.hpp
+│   │   ├── state_engine.{hpp,cpp}    # Phase 7
+│   │   └── history_ring.hpp          # Phase 7
 │   ├── driver/
-│   │   ├── igpu_driver.hpp
-│   │   ├── driver_registry.cpp
+│   │   ├── gpu_driver.hpp            # IGpuDriver — the contract
+│   │   ├── driver_registry.{hpp,cpp} # discovery, ordering, dedup, lifecycle
 │   │   ├── nvml/                     # shared Linux+Windows
 │   │   ├── amd/   linux_sysfs.cpp · windows_adlx.cpp
 │   │   ├── intel/ linux_sysfs.cpp · windows_l0.cpp
 │   │   └── procattr/ drm_fdinfo.cpp · pdh_counters.cpp
-│   ├── render/  braille_canvas · gradient · theme
+│   ├── render/  tokens/ · braille_canvas · gradient
 │   └── ui/      app · header_bar · engine_panel · thermal_panel · process_table
-└── tests/
+└── tests/  unit/ · mock/ · smoke/ · fixtures/
 ```
 
 ---
@@ -230,7 +232,7 @@ is what keeps the grep satisfiable by construction rather than by discipline.
 ## Phase 2 — Driver Abstraction & Runtime Loading
 
 **Goal:** enumerate whatever GPUs exist; exit cleanly when there are none.
-**Progress: 0 / 12**
+**Progress: 12 / 12**
 
 ### 2.1 The `IGpuDriver` contract
 ```cpp
@@ -263,20 +265,20 @@ public:
     virtual bool healthy() const = 0;        // false ⇒ registry may retire it
 };
 ```
-- [ ] Define `types.hpp` — `DeviceSample`, `GpuStaticInfo`, `ProcessInfo`, `ThrottleFlags`, `Vendor`
-- [ ] Define `IGpuDriver` and document the contract in-header
-- [ ] **Every dynamic field is `std::optional`** — this is what makes six heterogeneous vendor/OS cells render through one UI without special-casing
-- [ ] `sample()` returns partial data rather than signalling failure; only unrecoverable driver loss flips `healthy()`
-- [ ] Static info separated from per-tick sampling so expensive string queries happen once
+- [x] Define `types.hpp` — `DeviceSample`, `GpuStaticInfo`, `ProcessInfo`, `ThrottleFlags`, `Vendor`
+- [x] Define `IGpuDriver` and document the contract in-header
+- [x] **Every dynamic field is `std::optional`** — this is what makes six heterogeneous vendor/OS cells render through one UI without special-casing
+- [x] `sample()` returns partial data rather than signalling failure; only unrecoverable driver loss flips `healthy()`
+- [x] Static info separated from per-tick sampling so expensive string queries happen once
 
 ### 2.2 Driver registry
-- [ ] Probe NVIDIA → AMD → Intel; collect **all** successes (hybrid systems legitimately return devices from several backends)
-- [ ] Stable device ordering across restarts — sort by PCI bus ID, not enumeration order
-- [ ] De-duplicate: one physical GPU must never appear twice when two backends can both see it
-- [ ] Retire unhealthy drivers at runtime without taking down the app
-- [ ] **Optimus/hybrid trap:** a discrete GPU may be runtime-suspended (`D3cold`). `nvmlInit` can succeed while device count is 0, or queries return `GPU_IS_LOST`. Treat this as **retryable** — re-probe periodically instead of disabling the backend forever
-- [ ] **Never wake a suspended dGPU just to poll it** — that costs real battery life. Poll only when already awake; display `suspended` otherwise
-- [ ] `--dump-json` headless mode: print one sample and exit
+- [x] Probe NVIDIA → AMD → Intel; collect **all** successes (hybrid systems legitimately return devices from several backends)
+- [x] Stable device ordering across restarts — sort by PCI bus ID, not enumeration order
+- [x] De-duplicate: one physical GPU must never appear twice when two backends can both see it
+- [x] Retire unhealthy drivers at runtime without taking down the app
+- [x] **Optimus/hybrid trap:** a discrete GPU may be runtime-suspended (`D3cold`). `nvmlInit` can succeed while device count is 0, or queries return `GPU_IS_LOST`. Treat this as **retryable** — re-probe periodically instead of disabling the backend forever
+- [x] **Never wake a suspended dGPU just to poll it** — that costs real battery life. Poll only when already awake; display `suspended` otherwise
+- [x] `--dump-json` headless mode: print one sample and exit
 
 > Build `--dump-json` **here, not later**. It is the CI test harness, the
 > vendor-tool comparison mechanism, and the debugging tool for every phase that
@@ -285,6 +287,40 @@ public:
 **Exit criteria:** with drivers hidden, the binary starts, prints "no supported
 GPU found", exits 0. On this laptop it enumerates both the RTX 3060 and the Iris
 Xe. `ldd ./gtop` (Linux) and Dependency Walker (Windows) show **no vendor library**.
+
+**Status — 12 / 12, with one clause of the exit criteria deferred.**
+
+`core/types.hpp` holds the vocabulary, `driver/gpu_driver.hpp` the contract, and
+`driver/driver_registry.{hpp,cpp}` the enumeration. `gtop --dump-json` prints a
+valid document on a machine with no GPU, and `gtop` with no arguments prints
+"No supported GPU found" and exits 0. `ldd` on the Linux binary lists libstdc++,
+libgcc, libc, libm; `objdump -p` on the cross-built `gtop.exe` lists KERNEL32
+and the C++ runtime. No vendor library on either.
+
+The deferred clause is enumerating the two GPUs in this laptop, which cannot be
+met here by construction: `builtin_backends()` is empty until Phase 3 puts NVML
+and i915 in it, so the registry correctly finds nothing. That is the same code
+path as a machine with no drivers, and exercising it now was the point.
+
+Registry behaviour is covered by `tests/unit/driver_test.cpp` against the mock
+backend in `tests/mock/`, because the interesting cases are ones real hardware
+will not perform on request: a card vanishing mid-run, two backends claiming one
+PCI address, a dGPU asleep in D3cold. Time is passed into `probe()` and
+`sample_all()` explicitly, so the retry-interval tests do not sleep.
+
+Two design notes worth carrying into Phase 3:
+
+- **The PCI address is the identity key**, canonicalised by
+  `core::normalise_pci_bus_id`. NVML pads the domain to eight digits, sysfs to
+  four, lspci drops it; all three spell the same card, and de-duplication only
+  works because they collapse to one string. A backend that cannot supply an
+  address falls back to the uuid, and one that supplies neither is kept but
+  never de-duplicated — hiding a real GPU is worse than showing an awkward row.
+- **`power_state()` must not wake the device.** The registry does not call
+  `sample()` on a suspended device at all; it publishes a reading with
+  `kSuspended` and no metrics. A backend that answers this by resuming the GPU
+  turns a monitor into a battery drain, so answer from sysfs `runtime_status`
+  or answer `kUnknown`.
 
 ---
 
@@ -521,7 +557,7 @@ Palette from the blueprint (Nord-adjacent).
 
 ## Phase 9 — Verification & Release
 
-**Progress: 0 / 9**
+**Progress: 0 / 10**
 
 ### Test matrix
 

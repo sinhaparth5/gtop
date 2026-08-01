@@ -41,4 +41,26 @@ Two consequences that must be designed for, not patched around later:
 Formatting, colour, or layout. This layer produces numbers; deciding that 84 °C
 should be rendered amber is the render layer's job.
 
-*Currently an INTERFACE target; becomes STATIC when the first `.cpp` lands.*
+## Adding a backend
+
+`DriverRegistry` owns discovery and lifecycle; a backend supplies one `ProbeFn`
+and one `IGpuDriver` per GPU it can see. Register it in `builtin_backends()`
+(`driver_registry.cpp`) — probe order is NVIDIA → AMD → Intel, and it decides
+which backend keeps a card that two of them can see.
+
+Three obligations the registry cannot enforce for you:
+
+- **Fill in `pci_bus_id`.** It is the identity key, and de-duplication is what
+  stops one physical GPU appearing twice. `core::normalise_pci_bus_id` handles
+  the spelling differences. Fall back to `uuid` if the vendor gives no address.
+- **`power_state()` must not wake the device.** The registry skips `sample()`
+  on a suspended GPU precisely so a hybrid laptop's dGPU stays asleep; a backend
+  that resumes the card to answer defeats the whole mechanism.
+- **A backend that finds nothing is re-probed on an interval.** `nvmlInit()`
+  succeeding with zero devices is a D3cold dGPU, not an absent one, so returning
+  an empty list is a temporary answer rather than a permanent one.
+
+`tests/mock/mock_driver.hpp` implements the interface for tests. It is not the
+Phase 9 `--driver=mock` backend, and it deliberately lives outside `src/`.
+
+*STATIC as of Phase 2.*

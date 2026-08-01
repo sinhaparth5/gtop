@@ -14,8 +14,8 @@
 #
 # Layers are INTERFACE targets while they remain header-only; each converts to
 # STATIC when its first .cpp lands (see the note in each layer's README).
-# platform is STATIC as of Phase 1; core, driver, render and ui are still
-# header-only.
+# platform is STATIC as of Phase 1, core and driver as of Phase 2; render and ui
+# are still header-only.
 
 # -- layer 0: platform — OS abstraction, the only place with #ifdef ------------
 #
@@ -50,17 +50,27 @@ target_link_libraries(gtop_platform PRIVATE gtop_warnings)
 target_link_libraries(gtop_platform PUBLIC ${CMAKE_DL_LIBS})
 
 # -- layer 1: core — domain types and state, no I/O ----------------------------
-add_library(gtop_core INTERFACE)
-target_include_directories(gtop_core INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}")
-target_compile_features(gtop_core INTERFACE cxx_std_20)
-target_link_libraries(gtop_core INTERFACE gtop_warnings)
+add_library(gtop_core STATIC
+    core/config.cpp
+    core/json_export.cpp
+    core/types.cpp)
+
+target_include_directories(gtop_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_features(gtop_core PUBLIC cxx_std_20)
+target_link_libraries(gtop_core PRIVATE gtop_warnings)
+
+# The version lives in project(VERSION ...) and nowhere else. PUBLIC because
+# core/version.hpp is a header: anything including it needs the same value, and
+# a target that disagreed would report a different version than it is.
+target_compile_definitions(gtop_core PUBLIC GTOP_VERSION="${PROJECT_VERSION}")
 
 # -- layer 2: driver — vendor telemetry, runtime-loaded ------------------------
-add_library(gtop_driver INTERFACE)
-target_include_directories(gtop_driver INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}")
-target_compile_features(gtop_driver INTERFACE cxx_std_20)
-target_link_libraries(gtop_driver INTERFACE
-    gtop_warnings gtop_core gtop_platform gtop_vendor_headers)
+add_library(gtop_driver STATIC driver/driver_registry.cpp)
+
+target_include_directories(gtop_driver PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_features(gtop_driver PUBLIC cxx_std_20)
+target_link_libraries(gtop_driver PRIVATE gtop_warnings)
+target_link_libraries(gtop_driver PUBLIC gtop_core gtop_platform gtop_vendor_headers)
 
 # -- layer 3: render — design tokens and drawing primitives --------------------
 add_library(gtop_render INTERFACE)
