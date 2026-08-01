@@ -9,7 +9,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-pre--alpha-BF616A?style=for-the-badge&labelColor=2E3440" alt="Status: pre-alpha">
-  <img src="https://img.shields.io/badge/roadmap-16%2F122_tasks-3B4252?style=for-the-badge&labelColor=2E3440" alt="Roadmap: 16 of 122 tasks">
+  <img src="https://img.shields.io/badge/roadmap-17%2F123_tasks-3B4252?style=for-the-badge&labelColor=2E3440" alt="Roadmap: 17 of 123 tasks">
   <img src="https://img.shields.io/badge/license-GPL--3.0-A3BE8C?style=for-the-badge&logo=gnu&logoColor=white&labelColor=2E3440" alt="License: GPL-3.0">
 </p>
 
@@ -32,15 +32,16 @@
 
 > ### Project status: platform layer done, no telemetry yet
 >
-> Phase 1 of the roadmap is complete on Linux: runtime library loading, host
-> identity, process control, and terminal capability detection, with tests
-> passing under ASan and UBSan. The Win32 sources are written but have not been
-> compiled — no Windows toolchain is available yet.
+> Phase 1 of the roadmap is complete: runtime library loading, host identity,
+> process control, and terminal capability detection, with tests passing under
+> ASan and UBSan. The Windows build is verified by cross-compiling with
+> mingw-w64 — it compiles and links, FTXUI included, but has never been run on
+> Windows.
 >
 > No GPU backend exists, so the binary prints what it detected about the host
 > and exits.
 >
-> [`ROADMAP.md`](ROADMAP.md) carries the plan: architecture, 122 tracked tasks
+> [`ROADMAP.md`](ROADMAP.md) carries the plan: architecture, 123 tracked tasks
 > across 9 phases, vendor API entry points, and the traps that come with each.
 >
 > Everything below describes the target. The code does not do it yet, and there
@@ -182,11 +183,11 @@ Architectural invariants. Each maps to a verifiable exit criterion in the roadma
 
 ## Roadmap
 
-Progress is tracked as 122 checkboxes in [`ROADMAP.md`](ROADMAP.md).
+Progress is tracked as 123 checkboxes in [`ROADMAP.md`](ROADMAP.md).
 
 | Phase | Focus | Progress |
 | :--- | :--- | :--- |
-| 1 | Foundation & platform abstraction | `█████████░` 16 / 17 |
+| 1 | Foundation & platform abstraction | `██████████` 17 / 17 |
 | 2 | Driver abstraction & runtime loading | `░░░░░░░░░░` 0 / 12 |
 | 3 | Vendor backends — NVIDIA, AMD, Intel | `░░░░░░░░░░` 0 / 33 |
 | 4 | Per-process attribution | `░░░░░░░░░░` 0 / 10 |
@@ -194,10 +195,10 @@ Progress is tracked as 122 checkboxes in [`ROADMAP.md`](ROADMAP.md).
 | 6 | Terminal UI & layout | `░░░░░░░░░░` 0 / 15 |
 | 7 | Threading & performance | `░░░░░░░░░░` 0 / 9 |
 | 8 | Visual styling | `░░░░░░░░░░` 0 / 5 |
-| 9 | Verification & release | `░░░░░░░░░░` 0 / 9 |
+| 9 | Verification & release | `░░░░░░░░░░` 0 / 10 |
 
 Milestone path: M1 → M2 → M3 → M4 delivers a working single-GPU monitor, 72 of
-the 122 tasks. The rest is breadth across vendors and platforms.
+the 123 tasks. The rest is breadth across vendors and platforms.
 
 ## Building
 
@@ -207,6 +208,11 @@ cmake --build --preset linux-release
 ctest --preset linux-release
 ./build/linux-release/bin/gtop
 ```
+
+There is also a `windows-mingw` preset that cross-compiles the Windows build
+from Linux with mingw-w64. It is how the Win32 sources are kept honest in the
+absence of a Windows machine: it builds and links everything, FTXUI included,
+but produces binaries this repo has no way to run.
 
 You need a C++20 compiler (GCC 12+, Clang 15+, or MSVC 19.36+) and CMake 3.24+.
 Dependency fetching is off by default so a fresh clone configures offline; turn

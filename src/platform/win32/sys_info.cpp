@@ -6,6 +6,7 @@
 
 #include <array>
 #include <string>
+#include <string_view>
 
 #include "platform/win32/wide_string.hpp"
 

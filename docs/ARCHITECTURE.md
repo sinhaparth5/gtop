@@ -75,6 +75,10 @@ grep -rn '#include "driver/' src/ui/                          # → empty
 
 # 4. Text tokens must clear WCAG AA
 ctest --preset linux-release -R tokens
+
+# 5. No vendor DLL in the Windows import table (after a windows-mingw build)
+x86_64-w64-mingw32-objdump -p build/windows-mingw/bin/gtop.exe | grep 'DLL Name'
+# → KERNEL32, the CRT, and the GCC runtime; nothing vendor-specific
 ```
 
 ## Build
@@ -87,8 +91,11 @@ ctest --preset linux-release
 ```
 
 Presets exist for `linux-debug` (ASan/UBSan), `linux-release`, `windows-debug`,
-and `windows-release`. Third-party fetching is off by default so a fresh clone
-configures offline; enable with `-DGTOP_FETCH_DEPS=ON`.
+`windows-release`, and `windows-mingw` — the last cross-compiles the Windows
+build from Linux via `cmake/toolchains/mingw-w64.cmake`, which is what keeps
+`platform/win32/` compiling while no Windows machine exists. Third-party
+fetching is off by default so a fresh clone configures offline; enable with
+`-DGTOP_FETCH_DEPS=ON`.
 
 ## Directory map
 
@@ -103,6 +110,7 @@ src/
 
 third_party/vendor_headers/   nvidia/ amd/ intel/ — headers only, never linked
 tests/                        unit/, mock/, fixtures/
-cmake/                        CompilerWarnings.cmake, Dependencies.cmake
+cmake/                        CompilerWarnings.cmake, Dependencies.cmake,
+                              CompilerMatrix.cmake, toolchains/mingw-w64.cmake
 docs/                         this file, DESIGN-TOKENS.md
 ```

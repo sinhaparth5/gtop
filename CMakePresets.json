@@ -26,6 +26,14 @@
       "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
     },
     {
+      "name": "windows-mingw",
+      "inherits": "base",
+      "displayName": "Windows cross-build (mingw-w64, hosted on Linux)",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" },
+      "toolchainFile": "${sourceDir}/cmake/toolchains/mingw-w64.cmake",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+    },
+    {
       "name": "windows-debug",
       "inherits": "base",
       "displayName": "Windows Debug (MSVC)",
@@ -45,6 +53,7 @@
   "buildPresets": [
     { "name": "linux-debug", "configurePreset": "linux-debug" },
     { "name": "linux-release", "configurePreset": "linux-release" },
+    { "name": "windows-mingw", "configurePreset": "windows-mingw" },
     { "name": "windows-debug", "configurePreset": "windows-debug", "configuration": "Debug" },
     { "name": "windows-release", "configurePreset": "windows-release", "configuration": "RelWithDebInfo" }
   ],

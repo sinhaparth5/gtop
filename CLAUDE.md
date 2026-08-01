@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status: Phase 1 done (16/122), no telemetry yet
+## Project status: Phase 1 complete (17/123), no telemetry yet
 
 **No GPU backend, canvas, or UI is implemented.** `main.cpp` prints what the
 platform layer detected about the host and exits.
@@ -13,11 +13,14 @@ What is real today: the build system and presets, `src/render/tokens/`
 ASan/UBSan. Phase 2 is next: `IGpuDriver`, the driver registry, and
 `--dump-json`.
 
-Caveat that matters: `src/platform/win32/` is written but **has never been
-compiled** — there is no Windows toolchain here. Treat it as unverified, and
-expect the first MSVC build to find real errors.
+Caveat that matters: `src/platform/win32/` compiles, but **nothing Windows has
+ever been run.** The `windows-mingw` preset cross-builds the whole tree
+(including FTXUI) for a Windows target from Linux, so the code is known to be
+valid portable C++ — it is not known to be MSVC-conformant, and its runtime
+behaviour is untested. Re-run that preset after touching anything under
+`platform/win32/`.
 
-`ROADMAP.md` is the specification — architecture, 122 tracked tasks, vendor API
+`ROADMAP.md` is the specification — architecture, 123 tracked tasks, vendor API
 entry points, known traps. **Read it before implementation work.** It encodes
 decisions expensive to reverse, notably the platform layer, which exists so
 cross-platform support isn't retrofitted after the UI is built.
@@ -34,6 +37,20 @@ cmake --build --preset linux-release
 ctest --preset linux-release          # single suite: ctest --preset linux-release -R platform
 ./build/linux-release/bin/gtop
 ```
+
+### Checking the Windows half from Linux
+
+```bash
+cmake --preset windows-mingw          # needs x86_64-w64-mingw32-g++ on PATH
+cmake --build --preset windows-mingw  # produces build/windows-mingw/bin/gtop.exe
+```
+
+This is the only way to compile `src/platform/win32/` on this machine, so run it
+whenever that directory changes — otherwise the Windows sources rot silently and
+the first real MSVC build inherits every mistake at once. It cross-compiles, so
+it builds and links but cannot run; `ctest` has no `windows-mingw` preset for
+that reason. Point `GTOP_MINGW_ROOT` at a prefix if the toolchain is not on
+`PATH`. Being GCC, it proves portability, not MSVC conformance.
 
 `GTOP_FETCH_DEPS` is **OFF** by default so a fresh clone configures offline and
 with no GPU SDK. Turn it on when FTXUI/Catch2 are actually needed; that also
@@ -108,20 +125,28 @@ ctest --preset linux-release -R tokens                                      # pa
 The token test asserts every text role clears WCAG AA (4.5:1) against
 `panel_surface`, so a colour change cannot silently degrade legibility.
 
+Rule 1 has a Windows form too — after a `windows-mingw` build, the import table
+must name no vendor DLL:
+
+```bash
+x86_64-w64-mingw32-objdump -p build/windows-mingw/bin/gtop.exe | grep 'DLL Name'
+# KERNEL32.dll, msvcrt.dll, libgcc_s_seh-1.dll, libstdc++-6.dll — nothing else
+```
+
 ## Progress tracking protocol
 
-`ROADMAP.md` tracks 122 tasks as `- [ ]` checkboxes. When completing work,
+`ROADMAP.md` tracks 123 tasks as `- [ ]` checkboxes. When completing work,
 **update all three places** or the dashboard goes stale:
 
 1. The task checkbox `- [ ]` → `- [x]`
 2. That phase's `**Progress: 0 / N**` line
-3. The dashboard table row *and* the `**Overall: 0 / 122**` header
+3. The dashboard table row *and* the `**Overall: 0 / 123**` header
 
 Verify counts rather than trusting them:
 
 ```bash
-grep -c '^- \[x\]'   ROADMAP.md   # completed
-grep -c '^- \[[ x]\]' ROADMAP.md   # total (must equal the dashboard denominator)
+grep -c '^- \[x\]'   ROADMAP.md   # completed — currently 17
+grep -c '^- \[[ x]\]' ROADMAP.md   # total (must equal the dashboard denominator) — 123
 ```
 
 The phase rows, the milestone table, and the overall count must all sum to the
@@ -158,6 +183,6 @@ Build `--dump-json` (headless single-sample mode) in Phase 2, **not later** — 
 is the CI harness, the vendor-tool comparison mechanism, and the debugging tool
 for every subsequent phase.
 
-Recommended order is M1 → M2 → M3 → M4 (72 of the 122 tasks), which yields a
+Recommended order is M1 → M2 → M3 → M4 (72 of the 123 tasks), which yields a
 working single-GPU monitor; the rest is breadth. NVIDIA goes first because NVML's
 identical API covers two cells with one implementation.

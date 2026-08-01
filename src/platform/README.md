@@ -55,5 +55,7 @@ A missing library and a missing symbol both return an empty value rather than
 signalling. `DynamicLibrary::open()` takes a list of candidate names, which is
 how NVML's `_v3` → `_v2` → v1 soname fallback is expressed.
 
-*STATIC as of Phase 1. The Win32 sources are written but have never been
-compiled — no Windows toolchain is available yet.*
+*STATIC as of Phase 1. Both implementations compile: `posix/` is built and
+tested natively, `win32/` is cross-compiled by the `windows-mingw` preset. Run
+that preset after changing anything in `win32/` — it is the only compiler that
+ever sees those files here. Nothing in `win32/` has been executed.*

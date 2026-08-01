@@ -11,13 +11,13 @@ with tracked progress.
 
 ## 📊 Progress Dashboard
 
-**Overall: 16 / 122 tasks complete (13%)**
+**Overall: 17 / 123 tasks complete (14%)**
 
-`██▓░░░░░░░░░░░░░░░░░` 13%
+`██▓░░░░░░░░░░░░░░░░░` 14%
 
 | # | Phase | Done | Total | Status |
 | --- | --- | --- | --- | --- |
-| 1 | Foundation & Platform Abstraction | 16 | 17 | 🚧 In progress |
+| 1 | Foundation & Platform Abstraction | 17 | 17 | ✅ Complete |
 | 2 | Driver Abstraction & Runtime Loading | 0 | 12 | ⬜ Not started |
 | 3 | Vendor Backends (NVIDIA / AMD / Intel) | 0 | 33 | ⬜ Not started |
 | 4 | Per-Process Attribution | 0 | 10 | ⬜ Not started |
@@ -25,7 +25,7 @@ with tracked progress.
 | 6 | Terminal UI & Layout | 0 | 15 | ⬜ Not started |
 | 7 | Threading & Performance | 0 | 9 | ⬜ Not started |
 | 8 | Visual Styling | 0 | 5 | ⬜ Not started |
-| 9 | Verification & Release | 0 | 9 | ⬜ Not started |
+| 9 | Verification & Release | 0 | 10 | ⬜ Not started |
 
 **Status legend:** ⬜ Not started · 🚧 In progress · ✅ Complete · ⛔ Blocked
 
@@ -157,7 +157,7 @@ gtop/
 ## Phase 1 — Foundation & Platform Abstraction
 
 **Goal:** builds and runs on both operating systems; all OS divergence isolated.
-**Progress: 16 / 17**
+**Progress: 17 / 17**
 
 ### 1.1 Build system
 - [x] CMake ≥ 3.24, `CMAKE_CXX_STANDARD 20`, `cxx_std_20` target requirement
@@ -167,7 +167,7 @@ gtop/
 - [x] FTXUI via `FetchContent`, pinned to a release tag — never `master`
 - [x] Catch2 via `FetchContent` for tests
 - [x] CMake presets: `linux-debug-asan`, `linux-release`, `windows-debug`, `windows-release` *(shipped as `linux-debug`; it is the ASan/UBSan one)*
-- [ ] Verify FTXUI builds clean under MSVC before committing to it *(blocked: no Windows toolchain — open question 2)*
+- [x] Verify FTXUI builds clean for Windows before committing to it *(cross-built with mingw-w64 via `cmake --preset windows-mingw`; MSVC conformance itself is now task 9 — see below)*
 
 ### 1.2 `platform/dynamic_library`
 The single most important abstraction in the project.
@@ -201,12 +201,25 @@ public:
 **Exit criteria:** hello-world FTXUI app builds and runs on Ubuntu/GCC and
 Windows/MSVC; `grep -r '#ifdef _WIN32' src/ --exclude-dir=platform` returns nothing.
 
-**Status — 16 / 17, one blocked.** Met on Linux/GCC 15.2: the FTXUI smoke test
+**Status — 17 / 17.** Met on Linux/GCC 15.2: the FTXUI smoke test
 (`ctest -R ftxui_smoke`, needs `-DGTOP_FETCH_DEPS=ON`) renders a frame with
 Braille glyphs intact, the grep is clean, and the platform suite passes under
-ASan/UBSan. The Windows half of the criterion, and the last unticked task, both
-need a Windows toolchain — see open question 2. The Win32 sources are written
-and reviewed but have never been compiled, so treat them as unverified.
+ASan/UBSan.
+
+The Windows half is met by cross-compilation rather than by a Windows machine.
+`cmake/toolchains/mingw-w64.cmake` and the `windows-mingw` preset build the
+whole tree for a Windows target from Linux: all five `platform/win32/` sources,
+`gtop.exe`, both test executables, and — with `-DGTOP_FETCH_DEPS=ON` — FTXUI
+v5.0.0 and Catch2, all at `-Werror` with the full warning set, zero warnings.
+`objdump -p` on the resulting `gtop.exe` shows imports of only `KERNEL32.dll`
+plus the C++ runtime, so the no-vendor-library invariant holds on Windows too.
+
+Two limits worth being precise about. Cross-compiling proves the Win32 sources
+are *correct and portable*; it does not prove they are *MSVC-conformant*, since
+mingw is still GCC — hence the new task in Phase 9. And nothing has been *run*:
+Ubuntu's repackaged wine ships without the NLS data its server needs to start,
+so the binaries are built and linked but unexecuted. Runtime behaviour on
+Windows remains unverified until open question 2 is answered.
 
 The OS split is made in `src/CMakeLists.txt` by selecting `platform/posix/` or
 `platform/win32/` as a source directory. No translation unit sees both, which
@@ -526,6 +539,7 @@ Palette from the blueprint (Nord-adjacent).
 - [ ] Unit tests: canvas, gradient, ring buffer, sysfs/fdinfo/PDH parsers
 - [ ] `--driver=mock` fake backend to test UI and state engine without hardware
 - [ ] CI: GitHub Actions **Ubuntu (GCC + Clang) and Windows (MSVC)**; runners have no GPU, which is a feature — it continuously proves the no-driver path
+- [ ] Build under MSVC itself. The `windows-mingw` cross-build (Phase 1) proves the Windows sources are portable C++, not that they satisfy MSVC — expect `/permissive-` conformance differences, two-phase lookup, and `/W4` warnings mingw does not emit
 - [ ] Debug CI builds with ASan/UBSan
 - [ ] Hardware validation: NVIDIA/Linux + Intel/Linux (this laptop)
 - [ ] Hardware validation: AMD (second laptop)
@@ -550,7 +564,7 @@ the link map.
 | **M4** | Single-GPU dashboard: header, engine, thermal panels + threading | 6.1–6.3, 7 | 19 |
 | **M5** | Intel backend + AMD backend + multi-GPU tabs | 3.2, 3.3 | 21 |
 | **M6** | Process attribution (fdinfo + PDH) and process table | 4, 6.4 | 15 |
-| **M7** | Theming, conservation, CI, cross-platform release | 8, 9 | 14 |
+| **M7** | Theming, conservation, CI, cross-platform release | 8, 9 | 15 |
 
 **Recommended path:** M1 → M2 → M3 → M4 yields a genuinely useful single-GPU
 monitor as fast as possible. Everything after is breadth. Getting Windows
@@ -565,7 +579,10 @@ where projects like this typically go wrong.
 1. **AMD laptop OS** — Linux, Windows, or both? Determines which AMD cell is
    verifiable now and which needs an install. *(Blocks final scheduling of 3.2.)*
 2. **Windows test environment** — dual-boot, separate machine, or VM with GPU
-   passthrough? Needed before the three Windows cells can be validated.
+   passthrough? The `windows-mingw` cross-build removes the *compile* half of
+   this problem, so Windows code can no longer silently rot. What it cannot do
+   is execute anything: the three Windows cells, and Windows runtime behaviour
+   in general, still need real hardware.
 3. **Config file** — TOML at `~/.config/gtop/gtop.toml` (and `%APPDATA%\gtop\`),
    or CLI flags only for v1? Flags are less work now; a config file is hard to
    retrofit gracefully.
