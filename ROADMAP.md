@@ -11,13 +11,13 @@ with tracked progress.
 
 ## 📊 Progress Dashboard
 
-**Overall: 0 / 122 tasks complete (0%)**
+**Overall: 16 / 122 tasks complete (13%)**
 
-`░░░░░░░░░░░░░░░░░░░░` 0%
+`██▓░░░░░░░░░░░░░░░░░` 13%
 
 | # | Phase | Done | Total | Status |
 | --- | --- | --- | --- | --- |
-| 1 | Foundation & Platform Abstraction | 0 | 17 | ⬜ Not started |
+| 1 | Foundation & Platform Abstraction | 16 | 17 | 🚧 In progress |
 | 2 | Driver Abstraction & Runtime Loading | 0 | 12 | ⬜ Not started |
 | 3 | Vendor Backends (NVIDIA / AMD / Intel) | 0 | 33 | ⬜ Not started |
 | 4 | Per-Process Attribution | 0 | 10 | ⬜ Not started |
@@ -157,17 +157,17 @@ gtop/
 ## Phase 1 — Foundation & Platform Abstraction
 
 **Goal:** builds and runs on both operating systems; all OS divergence isolated.
-**Progress: 0 / 17**
+**Progress: 16 / 17**
 
 ### 1.1 Build system
-- [ ] CMake ≥ 3.24, `CMAKE_CXX_STANDARD 20`, `cxx_std_20` target requirement
-- [ ] Compiler matrix: GCC ≥ 12, Clang ≥ 15, **MSVC ≥ 19.36** (VS 2022), clang-cl
-- [ ] Warning flags abstracted: `-Wall -Wextra -Wpedantic` ↔ `/W4`; warnings-as-errors in dev
-- [ ] MSVC needs `/utf-8` explicitly, or the Braille string literals in source are mangled
-- [ ] FTXUI via `FetchContent`, pinned to a release tag — never `master`
-- [ ] Catch2 via `FetchContent` for tests
-- [ ] CMake presets: `linux-debug-asan`, `linux-release`, `windows-debug`, `windows-release`
-- [ ] Verify FTXUI builds clean under MSVC before committing to it
+- [x] CMake ≥ 3.24, `CMAKE_CXX_STANDARD 20`, `cxx_std_20` target requirement
+- [x] Compiler matrix: GCC ≥ 12, Clang ≥ 15, **MSVC ≥ 19.36** (VS 2022), clang-cl
+- [x] Warning flags abstracted: `-Wall -Wextra -Wpedantic` ↔ `/W4`; warnings-as-errors in dev
+- [x] MSVC needs `/utf-8` explicitly, or the Braille string literals in source are mangled
+- [x] FTXUI via `FetchContent`, pinned to a release tag — never `master`
+- [x] Catch2 via `FetchContent` for tests
+- [x] CMake presets: `linux-debug-asan`, `linux-release`, `windows-debug`, `windows-release` *(shipped as `linux-debug`; it is the ASan/UBSan one)*
+- [ ] Verify FTXUI builds clean under MSVC before committing to it *(blocked: no Windows toolchain — open question 2)*
 
 ### 1.2 `platform/dynamic_library`
 The single most important abstraction in the project.
@@ -181,17 +181,17 @@ public:
     ~DynamicLibrary();   // dlclose | FreeLibrary
 };
 ```
-- [ ] POSIX impl: `dlopen(RTLD_LAZY | RTLD_LOCAL)` / `dlsym` / `dlclose`
-- [ ] Win32 impl: `LoadLibraryExW` / `GetProcAddress` / `FreeLibrary`
-- [ ] Candidate-name lists per platform (see per-vendor sections for exact sonames)
-- [ ] Missing symbols must be **non-fatal** — an older driver simply lacks newer entry points; that disables one metric, never the whole backend
-- [ ] Unit test with a deliberately absent library and an absent symbol
+- [x] POSIX impl: `dlopen(RTLD_LAZY | RTLD_LOCAL)` / `dlsym` / `dlclose`
+- [x] Win32 impl: `LoadLibraryExW` / `GetProcAddress` / `FreeLibrary`
+- [x] Candidate-name lists per platform (see per-vendor sections for exact sonames)
+- [x] Missing symbols must be **non-fatal** — an older driver simply lacks newer entry points; that disables one metric, never the whole backend
+- [x] Unit test with a deliberately absent library and an absent symbol
 
 ### 1.3 `platform/sys_info`, `process_control`, `terminal_setup`
-- [ ] `sys_info`: hostname + OS/kernel version — `uname`/`gethostname` ↔ `RtlGetVersion`/`GetComputerNameW`
-- [ ] `process_control`: PID → process name — `/proc/<pid>/comm`+`cmdline` ↔ `QueryFullProcessImageNameW`
-- [ ] `process_control`: terminate — `kill(SIGTERM/SIGKILL)` ↔ `OpenProcess(PROCESS_TERMINATE)` + `TerminateProcess`
-- [ ] `terminal_setup`: **Windows requires explicit enablement** — `SetConsoleMode(ENABLE_VIRTUAL_TERMINAL_PROCESSING)` and `SetConsoleOutputCP(CP_UTF8)`, or TrueColor escapes print as literal garbage and Braille renders as `?`
+- [x] `sys_info`: hostname + OS/kernel version — `uname`/`gethostname` ↔ `RtlGetVersion`/`GetComputerNameW`
+- [x] `process_control`: PID → process name — `/proc/<pid>/comm`+`cmdline` ↔ `QueryFullProcessImageNameW`
+- [x] `process_control`: terminate — `kill(SIGTERM/SIGKILL)` ↔ `OpenProcess(PROCESS_TERMINATE)` + `TerminateProcess`
+- [x] `terminal_setup`: **Windows requires explicit enablement** — `SetConsoleMode(ENABLE_VIRTUAL_TERMINAL_PROCESSING)` and `SetConsoleOutputCP(CP_UTF8)`, or TrueColor escapes print as literal garbage and Braille renders as `?`
 
 > **Semantic gap to design around:** Windows has no `SIGTERM` equivalent.
 > `TerminateProcess` is unconditionally forceful, like `SIGKILL`. The UI must not
@@ -200,6 +200,17 @@ public:
 
 **Exit criteria:** hello-world FTXUI app builds and runs on Ubuntu/GCC and
 Windows/MSVC; `grep -r '#ifdef _WIN32' src/ --exclude-dir=platform` returns nothing.
+
+**Status — 16 / 17, one blocked.** Met on Linux/GCC 15.2: the FTXUI smoke test
+(`ctest -R ftxui_smoke`, needs `-DGTOP_FETCH_DEPS=ON`) renders a frame with
+Braille glyphs intact, the grep is clean, and the platform suite passes under
+ASan/UBSan. The Windows half of the criterion, and the last unticked task, both
+need a Windows toolchain — see open question 2. The Win32 sources are written
+and reviewed but have never been compiled, so treat them as unverified.
+
+The OS split is made in `src/CMakeLists.txt` by selecting `platform/posix/` or
+`platform/win32/` as a source directory. No translation unit sees both, which
+is what keeps the grep satisfiable by construction rather than by discipline.
 
 ---
 

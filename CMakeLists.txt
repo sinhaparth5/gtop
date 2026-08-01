@@ -21,6 +21,7 @@ option(GTOP_BUILD_TESTS        "Build the unit test suite"          ON)
 option(GTOP_FETCH_DEPS         "Fetch third-party dependencies"     OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(CompilerMatrix)
 include(CompilerWarnings)
 include(Dependencies)
 

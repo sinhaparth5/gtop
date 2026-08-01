@@ -40,11 +40,11 @@ blocking driver calls.
 The graph is declared in `src/CMakeLists.txt` via `target_link_libraries`, so
 adding an edge is an explicit, reviewable change rather than an accident.
 
-> **Honest limitation:** every layer currently shares `src/` as its include
-> root, so CMake cannot mechanically reject a sideways `#include`. Link-time
-> enforcement arrives once layers carry object code; until then the matrix above
-> plus review is the check. Splitting into per-layer include roots would make it
-> airtight, at the cost of a deeper tree.
+> **Honest limitation:** every layer shares `src/` as its include root, so CMake
+> cannot mechanically reject a sideways `#include`. `platform/` carries object
+> code as of Phase 1 and so is link-enforced; the four header-only layers above
+> it are still checked by the matrix plus review. Splitting into per-layer
+> include roots would make it airtight, at the cost of a deeper tree.
 
 ## Layer summaries
 
@@ -95,7 +95,7 @@ configures offline; enable with `-DGTOP_FETCH_DEPS=ON`.
 ```
 src/
 ├── main.cpp              application entry
-├── platform/             L0 — OS abstraction (posix/, win32/)
+├── platform/             L0 — OS abstraction (posix/, win32/) — implemented
 ├── core/                 L1 — types, state engine, config
 ├── driver/               L2 — nvml/, amd/, intel/, procattr/
 ├── render/               L3 — tokens/, canvas, gradients

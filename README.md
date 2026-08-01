@@ -9,7 +9,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-pre--alpha-BF616A?style=for-the-badge&labelColor=2E3440" alt="Status: pre-alpha">
-  <img src="https://img.shields.io/badge/roadmap-0%2F122_tasks-3B4252?style=for-the-badge&labelColor=2E3440" alt="Roadmap: 0 of 122 tasks">
+  <img src="https://img.shields.io/badge/roadmap-16%2F122_tasks-3B4252?style=for-the-badge&labelColor=2E3440" alt="Roadmap: 16 of 122 tasks">
   <img src="https://img.shields.io/badge/license-GPL--3.0-A3BE8C?style=for-the-badge&logo=gnu&logoColor=white&labelColor=2E3440" alt="License: GPL-3.0">
 </p>
 
@@ -30,10 +30,14 @@
 
 ---
 
-> ### Project status: early scaffolding
+> ### Project status: platform layer done, no telemetry yet
 >
-> The build system, the layered source tree, and the design-token layer exist and
-> compile. No GPU backend is implemented, so the binary prints a version banner
+> Phase 1 of the roadmap is complete on Linux: runtime library loading, host
+> identity, process control, and terminal capability detection, with tests
+> passing under ASan and UBSan. The Win32 sources are written but have not been
+> compiled — no Windows toolchain is available yet.
+>
+> No GPU backend exists, so the binary prints what it detected about the host
 > and exits.
 >
 > [`ROADMAP.md`](ROADMAP.md) carries the plan: architecture, 122 tracked tasks
@@ -182,7 +186,7 @@ Progress is tracked as 122 checkboxes in [`ROADMAP.md`](ROADMAP.md).
 
 | Phase | Focus | Progress |
 | :--- | :--- | :--- |
-| 1 | Foundation & platform abstraction | `░░░░░░░░░░` 0 / 17 |
+| 1 | Foundation & platform abstraction | `█████████░` 16 / 17 |
 | 2 | Driver abstraction & runtime loading | `░░░░░░░░░░` 0 / 12 |
 | 3 | Vendor backends — NVIDIA, AMD, Intel | `░░░░░░░░░░` 0 / 33 |
 | 4 | Per-process attribution | `░░░░░░░░░░` 0 / 10 |

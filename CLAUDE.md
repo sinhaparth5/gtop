@@ -2,14 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status: scaffolded, no telemetry yet
+## Project status: Phase 1 done (16/122), no telemetry yet
 
-The layered skeleton, build system, and design-token layer exist and are
-verified. **No GPU backend, canvas, or UI is implemented** — `main.cpp` is a stub
-that prints a version banner.
+**No GPU backend, canvas, or UI is implemented.** `main.cpp` prints what the
+platform layer detected about the host and exits.
 
-What is real today: `CMakeLists.txt` + presets, the five layer directories with
-their contracts, `src/render/tokens/` (complete), and one passing test.
+What is real today: the build system and presets, `src/render/tokens/`
+(complete), and `src/platform/` (complete — `DynamicLibrary`, `SystemInfo`,
+`ProcessControl`, `TerminalSession`). Two test suites pass, including under
+ASan/UBSan. Phase 2 is next: `IGpuDriver`, the driver registry, and
+`--dump-json`.
+
+Caveat that matters: `src/platform/win32/` is written but **has never been
+compiled** — there is no Windows toolchain here. Treat it as unverified, and
+expect the first MSVC build to find real errors.
 
 `ROADMAP.md` is the specification — architecture, 122 tracked tasks, vendor API
 entry points, known traps. **Read it before implementation work.** It encodes
@@ -25,14 +31,20 @@ record.
 ```bash
 cmake --preset linux-release          # or linux-debug (ASan/UBSan), windows-{debug,release}
 cmake --build --preset linux-release
-ctest --preset linux-release          # single test: ctest --preset linux-release -R tokens
+ctest --preset linux-release          # single suite: ctest --preset linux-release -R platform
 ./build/linux-release/bin/gtop
 ```
 
 `GTOP_FETCH_DEPS` is **OFF** by default so a fresh clone configures offline and
-with no GPU SDK. Turn it on when FTXUI/Catch2 are actually needed. Warnings are
-errors by default (`-Werror` / `/WX`) — including `-Wconversion` and
-`-Wold-style-cast`, so new code must be clean from the start.
+with no GPU SDK. Turn it on when FTXUI/Catch2 are actually needed; that also
+enables the `ftxui_smoke` suite, which is the only check that FTXUI still
+compiles and links against this toolchain. Warnings are errors by default
+(`-Werror` / `/WX`) — including `-Wconversion` and `-Wold-style-cast`, so new
+code must be clean from the start.
+
+Test executables are built with `-UNDEBUG` (see `tests/CMakeLists.txt`). The
+suites check with `assert`, and the release presets define `NDEBUG`, which would
+otherwise delete every check and leave a test that passes by doing nothing.
 
 ## What gtop is
 
