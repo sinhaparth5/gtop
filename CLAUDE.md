@@ -2,21 +2,37 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status: pre-implementation
+## Project status: scaffolded, no telemetry yet
 
-**No source code exists yet.** The repo contains `README.md`, `LICENSE` (GPL-3.0),
-`.gitignore`, and `ROADMAP.md`. There is no `CMakeLists.txt`, no `src/`, no tests,
-and therefore **no build, lint, or test commands yet** — Phase 1 of the roadmap
-establishes them. Do not invent or run build commands until they exist.
+The layered skeleton, build system, and design-token layer exist and are
+verified. **No GPU backend, canvas, or UI is implemented** — `main.cpp` is a stub
+that prints a version banner.
 
-`ROADMAP.md` is the complete specification: architecture, per-phase task
-breakdown, API entry points, and known traps. **Read it before doing
-implementation work** — it is the only design document, and it encodes decisions
-that are expensive to reverse (notably the platform layer, which exists so
-cross-platform support doesn't have to be retrofitted after the UI is built).
+What is real today: `CMakeLists.txt` + presets, the five layer directories with
+their contracts, `src/render/tokens/` (complete), and one passing test.
 
-Note: `ROADMAP.md` is currently **untracked**. The original PDF spec it was
-derived from has been deleted. If the roadmap is lost, the design is lost.
+`ROADMAP.md` is the specification — architecture, 122 tracked tasks, vendor API
+entry points, known traps. **Read it before implementation work.** It encodes
+decisions expensive to reverse, notably the platform layer, which exists so
+cross-platform support isn't retrofitted after the UI is built.
+`docs/ARCHITECTURE.md` covers the layer graph; `docs/DESIGN-TOKENS.md` the tokens.
+
+Note: the original PDF spec was deleted, so `ROADMAP.md` is the sole design
+record.
+
+## Build and test
+
+```bash
+cmake --preset linux-release          # or linux-debug (ASan/UBSan), windows-{debug,release}
+cmake --build --preset linux-release
+ctest --preset linux-release          # single test: ctest --preset linux-release -R tokens
+./build/linux-release/bin/gtop
+```
+
+`GTOP_FETCH_DEPS` is **OFF** by default so a fresh clone configures offline and
+with no GPU SDK. Turn it on when FTXUI/Catch2 are actually needed. Warnings are
+errors by default (`-Werror` / `/WX`) — including `-Wconversion` and
+`-Wold-style-cast`, so new code must be clean from the start.
 
 ## What gtop is
 
@@ -56,6 +72,29 @@ breaks a stated exit criterion in the roadmap.
    layouts.
 6. **Unprivileged by default.** Anything requiring root/Administrator degrades
    with a visible hint. Never crash on `EPERM` / `ERROR_ACCESS_DENIED`.
+7. **No raw hex colours outside `src/render/tokens/palette.hpp`.** UI names a
+   semantic role. `hex()` is `consteval`, so literals cannot reach runtime; a
+   grep catches the rest. `critical` (fill, 3.05:1) and `critical_text`
+   (4.83:1) are deliberately separate roles — see `docs/DESIGN-TOKENS.md`.
+8. **Layers depend downward only:** `ui → render → core`, `driver → core +
+   platform`, `ui → platform`. **`ui` must never include `driver/`** — panels
+   read a published snapshot, they never query hardware.
+
+### Enforceable invariants
+
+Run these before claiming a change is clean; they are the mechanical form of
+rules 2, 7, 8 and the token contrast contract:
+
+```bash
+grep -rn '#ifdef _WIN32' src/ --exclude-dir=platform                        # empty
+grep -rn --include=*.hpp --include=*.cpp 'hex(0x' src/ \
+  | grep -v 'tokens/palette.hpp'                                            # empty
+grep -rn '#include "driver/' src/ui/                                        # empty
+ctest --preset linux-release -R tokens                                      # passes
+```
+
+The token test asserts every text role clears WCAG AA (4.5:1) against
+`panel_surface`, so a colour change cannot silently degrade legibility.
 
 ## Progress tracking protocol
 

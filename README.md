@@ -30,16 +30,17 @@
 
 ---
 
-> ### Project status: pre-implementation
+> ### Project status: early scaffolding
 >
-> **There is no source code in this repository yet.** What exists today is a
-> complete engineering plan — [`ROADMAP.md`](ROADMAP.md) — covering architecture,
-> 122 tracked tasks across 9 phases, vendor API entry points, and the traps worth
-> knowing before writing a line of code.
+> The build system, the layered source tree, and the design-token layer exist and
+> compile. No GPU backend is implemented, so the binary prints a version banner
+> and exits.
 >
-> Everything below describes what gtop **is being built to do**, not what it
-> currently does. Nothing here is installable yet. Watch the repo if you want to
-> know when M1 lands.
+> [`ROADMAP.md`](ROADMAP.md) carries the plan: architecture, 122 tracked tasks
+> across 9 phases, vendor API entry points, and the traps that come with each.
+>
+> Everything below describes the target. The code does not do it yet, and there
+> is nothing installable. Watch the repo if you want to know when M1 lands.
 
 ---
 
@@ -48,18 +49,18 @@
 Standard system monitors tell you a GPU is "87% utilized" and stop there. That
 number is nearly useless for the workloads people actually run on GPUs today.
 
-A long training run doesn't fail because utilization was low — it fails because
+A long training run rarely fails because utilization was low. It fails because
 the card silently thermal-throttled at hour six, or because VRAM crept up until
 an allocation failed, or because a stale process from a crashed job still holds
 four gigabytes. None of that is visible in a single percentage.
 
-gtop is built to surface the things that actually matter:
+gtop is built to surface what that percentage hides:
 
 | | |
 | --- | --- |
-| **Sub-engine activity** | Compute, memory controller, encoder, and decoder tracked separately — a video pipeline and a tensor workload look nothing alike |
-| **Throttle state, prominently** | Thermal, power, and reliability throttling shown as a badge the moment it engages, not buried in a number that drifts |
-| **Power against the real limit** | Draw plotted against the *enforced* TGP, which is what actually constrains you — not the sticker rating |
+| **Sub-engine activity** | Compute, memory controller, encoder, and decoder tracked separately. A video pipeline and a tensor workload look nothing alike |
+| **Throttle state, prominently** | Thermal, power, and reliability throttling raise a badge the moment they engage, instead of showing up as a number that quietly drifts |
+| **Power against the real limit** | Draw plotted against the *enforced* TGP, which is the figure that constrains you, rather than the sticker rating |
 | **Per-process VRAM** | Which PID is holding your memory, sortable, with the ability to signal it |
 | **High-resolution history** | Braille sub-pixel graphs pack 4× the vertical detail of block characters, so brief spikes stay visible |
 
@@ -67,8 +68,8 @@ All of it in a terminal, over SSH, on a headless box, at roughly zero CPU cost.
 
 ## Support matrix
 
-Three vendors across two operating systems. **All six cells are in scope for
-v1** — none is a stretch goal.
+Three vendors across two operating systems. All six cells are in scope for v1;
+none is a stretch goal.
 
 | | Linux | Windows |
 | :--- | :--- | :--- |
@@ -77,13 +78,15 @@ v1** — none is a stretch goal.
 | **Intel** | `i915` / `xe` sysfs | Level Zero Sysman · `ze_loader.dll` |
 | **Per-process** | DRM fdinfo | PDH GPU counters |
 
-NVML exposes the *same API* on both operating systems — only the filename
-differs — so one implementation covers two cells. That is why NVIDIA ships first.
+NVML exposes the same API on both operating systems; only the filename differs.
+One implementation covers two cells, which is why NVIDIA ships first.
 
 ## Architecture
 
-Four layers, one direction of data flow. The platform layer exists so that
-supporting Windows never leaks an `#ifdef` into vendor or UI code.
+Data flows one direction. The platform layer exists so Windows support never
+leaks an `#ifdef` into vendor or UI code.
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) has the full layer graph and the
+dependency rules.
 
 ```mermaid
 flowchart TB
@@ -122,8 +125,8 @@ flowchart TB
 
 Driver calls take anywhere from 2 ms to over 50 ms. If the render thread ever
 waits on one, you see it as stutter. So sampling and drawing are fully separated,
-and the two threads share state through a single atomic pointer swap — readers
-are wait-free and always observe a coherent snapshot, never a half-written one.
+and the two threads share state through a single atomic pointer swap. Readers are
+wait-free and always observe a coherent snapshot rather than a half-written one.
 
 ```mermaid
 sequenceDiagram
@@ -148,7 +151,7 @@ sequenceDiagram
 
 ## Planned interface
 
-The target layout — a **design mockup**, not a screenshot, since nothing runs yet.
+The target layout. This is a design mockup; nothing runs yet.
 
 <p align="center">
   <img src="assets/mock-tui-design.png" width="900"
@@ -157,17 +160,16 @@ The target layout — a **design mockup**, not a screenshot, since nothing runs 
 
 ## Design constraints
 
-These are architectural invariants, not preferences. Each maps to a verifiable
-exit criterion in the roadmap.
+Architectural invariants. Each maps to a verifiable exit criterion in the roadmap.
 
 1. **No vendor library is ever linked at compile time.** NVML, ADLX, ROCm SMI,
    and Level Zero are all resolved at runtime. The binary must start on a machine
-   with no GPU and no drivers — verified by checking the link map.
+   with no GPU and no drivers, which is verified by checking the link map.
 2. **No `#ifdef` outside `src/platform/`.** Vendor and UI code reads as portable
    C++. Enforced by grep in CI.
 3. **Every dynamic metric is `std::optional`.** This is what lets six
    heterogeneous vendor/OS combinations render through one UI. Missing telemetry
-   shows `—`, never a misleading `0`.
+   renders as `—` rather than a misleading `0`.
 4. **The render thread never calls a driver.** Two threads, one atomic handoff.
 5. **A missing dynamic symbol is normal.** Older drivers lack newer entry points;
    that disables one metric, never a whole backend.
@@ -190,38 +192,38 @@ Progress is tracked as 122 checkboxes in [`ROADMAP.md`](ROADMAP.md).
 | 8 | Visual styling | `░░░░░░░░░░` 0 / 5 |
 | 9 | Verification & release | `░░░░░░░░░░` 0 / 9 |
 
-**Milestone path:** M1 → M2 → M3 → M4 delivers a working single-GPU monitor
-(72 of 122 tasks). Everything after that is breadth across vendors and platforms.
+Milestone path: M1 → M2 → M3 → M4 delivers a working single-GPU monitor, 72 of
+the 122 tasks. The rest is breadth across vendors and platforms.
 
 ## Building
 
-Not yet possible — Phase 1 establishes the build system. Once it exists, the
-intended flow is:
-
 ```bash
-cmake --preset linux-release      # or: windows-release
+cmake --preset linux-release      # or windows-release
 cmake --build --preset linux-release
-./build/gtop
+ctest --preset linux-release
+./build/linux-release/bin/gtop
 ```
 
-Planned requirements: a C++20 compiler (GCC 12+, Clang 15+, or MSVC 19.36+),
-CMake 3.24+, and a terminal with TrueColor and Braille glyph coverage — Windows
-Terminal, kitty, alacritty, or WezTerm all qualify. Consolas lacks Braille
-coverage, so Windows users should prefer Cascadia Mono.
+You need a C++20 compiler (GCC 12+, Clang 15+, or MSVC 19.36+) and CMake 3.24+.
+Dependency fetching is off by default so a fresh clone configures offline; turn
+it on with `-DGTOP_FETCH_DEPS=ON`.
 
-No GPU SDK is required to build. Vendor headers are vendored for type
-definitions only.
+No GPU SDK is required. Vendor headers are vendored for type definitions only.
+
+Rendering needs a terminal with TrueColor and Braille glyph coverage. Windows
+Terminal, kitty, alacritty, and WezTerm all qualify. Consolas has no Braille
+coverage, so on Windows prefer Cascadia Mono.
 
 ## Contributing
 
-The most valuable contribution right now is **hardware access**. The roadmap
-covers six vendor/OS combinations, and each needs validation against the vendor's
-own tooling. If you have an AMD card on Windows or an Intel Arc discrete GPU,
-your `--dump-json` output compared against `rocm-smi` or Task Manager is worth
-more than a patch.
+The most useful contribution right now is hardware access. The roadmap covers six
+vendor/OS combinations, and each needs validation against the vendor's own
+tooling. If you have an AMD card on Windows or an Intel Arc discrete GPU, a
+`--dump-json` capture compared against `rocm-smi` or Task Manager helps more than
+a patch would.
 
-Otherwise, start with [`ROADMAP.md`](ROADMAP.md) — pick an unchecked task and
-open an issue saying so.
+Otherwise, start with [`ROADMAP.md`](ROADMAP.md): pick an unchecked task and open
+an issue saying so.
 
 ## License
 
