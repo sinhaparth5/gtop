@@ -27,6 +27,12 @@ if(GTOP_FETCH_DEPS)
 endif()
 
 # Header-only interface for the vendored vendor headers.
+#
+# SYSTEM is not cosmetic here. gtop builds with -Werror plus -Wconversion and
+# -Wold-style-cast, and every vendor header is C: nvml.h alone has hundreds of
+# C-style casts in its version macros. Treating them as system headers is what
+# lets our own warning level stay maximal instead of being negotiated down to
+# whatever NVIDIA's headers happen to tolerate.
 add_library(gtop_vendor_headers INTERFACE)
 target_include_directories(gtop_vendor_headers
-    INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/vendor_headers")
+    SYSTEM INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/vendor_headers")

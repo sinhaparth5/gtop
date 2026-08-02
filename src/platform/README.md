@@ -15,6 +15,7 @@ Nothing. Standard library and OS headers only.
 | `SysInfo` | `uname`, `gethostname` | `RtlGetVersion`, `GetComputerNameW` |
 | `ProcessControl` | `/proc/<pid>/comm`, `kill` | `QueryFullProcessImageNameW`, `TerminateProcess` |
 | `TerminalSetup` | termios, `SIGWINCH` | `SetConsoleMode`, `SetConsoleOutputCP` |
+| `pci_power_state` | sysfs `power/runtime_status` | not exposed — answers `kUnknown` |
 
 ## Does not belong here
 
@@ -36,6 +37,7 @@ Include `platform.hpp` rather than an individual header.
 | `sys_info.hpp` | Hostname, OS name, OS version |
 | `process_control.hpp` | PID → name, terminate, capability query |
 | `terminal_setup.{hpp,cpp}` | Capability detection; RAII console state |
+| `pci_power.hpp` | Is this PCI device runtime-suspended? **Asking must not wake it** |
 | `posix/`, `win32/` | One implementation file per header |
 | `win32/wide_string.hpp` | UTF-16 → UTF-8. Private to `win32/` |
 

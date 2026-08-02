@@ -33,6 +33,7 @@ add_library(gtop_platform STATIC
     platform/dynamic_library.cpp
     platform/terminal_setup.cpp
     platform/${gtop_platform_impl}/dynamic_library.cpp
+    platform/${gtop_platform_impl}/pci_power.cpp
     platform/${gtop_platform_impl}/process_control.cpp
     platform/${gtop_platform_impl}/sys_info.cpp
     platform/${gtop_platform_impl}/terminal_setup.cpp)
@@ -65,7 +66,32 @@ target_link_libraries(gtop_core PRIVATE gtop_warnings)
 target_compile_definitions(gtop_core PUBLIC GTOP_VERSION="${PROJECT_VERSION}")
 
 # -- layer 2: driver — vendor telemetry, runtime-loaded ------------------------
-add_library(gtop_driver STATIC driver/driver_registry.cpp)
+#
+# The same OS split as the platform layer, and for the same reason: NVML is one
+# implementation serving both operating systems, but AMD and Intel are not, so
+# the *list* of backends differs. CMake chooses the file that spells it out.
+add_library(gtop_driver STATIC
+    driver/driver_registry.cpp
+    driver/${gtop_platform_impl}/backends.cpp
+    driver/nvml/nvml_api.cpp
+    driver/nvml/nvml_driver.cpp
+    driver/intel/level_zero_api.cpp
+    driver/intel/level_zero_driver.cpp)
+
+# The sysfs backends are Linux-only by construction, not by preprocessor. AMD
+# and Intel have entirely separate Windows implementations (ADLX, Level Zero),
+# so these sources are simply absent from a Windows build rather than compiled
+# into nothing.
+if(WIN32)
+    target_sources(gtop_driver PRIVATE
+        driver/amd/adlx_api.cpp
+        driver/amd/adlx_driver.cpp)
+else()
+    target_sources(gtop_driver PRIVATE
+        driver/sysfs/drm_sysfs.cpp
+        driver/amd/amdgpu_sysfs_driver.cpp
+        driver/intel/intel_sysfs_driver.cpp)
+endif()
 
 target_include_directories(gtop_driver PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(gtop_driver PUBLIC cxx_std_20)

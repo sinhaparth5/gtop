@@ -1,17 +1,19 @@
 // gtop — entry point.
 //
-// Phase 2 of ROADMAP.md: argument parsing, the driver registry, and
-// --dump-json. There are still no vendor backends, so builtin_backends() is
-// empty and the registry legitimately finds nothing — which is the same code
-// path as a machine with no GPU, and exercising it now is the point.
+// Argument parsing, the driver registry, and --dump-json. As of Phase 3 the
+// registry has real backends behind it, so both modes report actual telemetry;
+// a machine with no GPU still takes the same path it always did and still
+// exits 0.
 //
 // Phase 6 replaces the kRun branch with the FTXUI application.
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <cstdio>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 #include "core/config.hpp"
@@ -40,10 +42,25 @@ std::string describe_os(const gtop::platform::SystemInfo& host) {
 // Headless. No terminal is touched, no colour is emitted, and the exit status
 // is 0 even with zero devices — a CI runner without a GPU still gets valid
 // JSON with an empty array, which is a result rather than a failure.
-int dump_json(gtop::driver::DriverRegistry& registry) {
+int dump_json(gtop::driver::DriverRegistry& registry, std::chrono::milliseconds interval) {
     const gtop::platform::SystemInfo host = gtop::platform::query_system_info();
 
     registry.probe();
+
+    // Two samples, not one, and the first is discarded.
+    //
+    // Some metrics are rates, not readings: Intel has no busy-percent file at
+    // all and utilization has to be differenced out of RC6 residency, so a
+    // genuinely instantaneous dump reports "—" for it every time. Priming the
+    // backends and waiting a beat is what every vendor tool does internally,
+    // and it makes --dump-json comparable against nvidia-smi and intel_gpu_top
+    // rather than merely valid.
+    //
+    // Capped so a large --interval does not turn a dump into a long pause.
+    constexpr auto kMaxPriming = std::chrono::milliseconds(250);
+    (void)registry.sample_all();
+    std::this_thread::sleep_for(std::min(interval, kMaxPriming));
+
     const std::vector<gtop::core::DeviceReading> devices = registry.sample_all();
 
     const gtop::core::DumpMetadata metadata{host.hostname, describe_os(host)};
@@ -93,8 +110,8 @@ int run_interactive(gtop::driver::DriverRegistry& registry,
                     device.backend.data(), static_cast<int>(state.size()), state.data());
     }
     std::puts("");
-    std::puts("No vendor backend is implemented yet, so nothing above is telemetry.");
-    std::puts("See ROADMAP.md Phase 3; run with --dump-json for the machine-readable form.");
+    std::puts("There is no interactive UI yet — see ROADMAP.md Phases 5 and 6.");
+    std::puts("Run with --dump-json for the full reading in machine-readable form.");
     return kExitOk;
 }
 
@@ -121,7 +138,7 @@ int main(int argc, char** argv) {
             return kExitOk;
         case gtop::core::Config::Mode::kDumpJson: {
             gtop::driver::DriverRegistry registry;
-            return dump_json(registry);
+            return dump_json(registry, config.interval);
         }
         case gtop::core::Config::Mode::kRun:
             break;

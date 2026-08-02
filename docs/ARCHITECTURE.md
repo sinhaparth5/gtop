@@ -106,8 +106,10 @@ src/
 ├── platform/             L0 — OS abstraction (posix/, win32/) — implemented
 ├── core/                 L1 — types, config, json_export — implemented;
 │                              state engine and history rings are Phase 7
-├── driver/               L2 — IGpuDriver + DriverRegistry — implemented;
-│                              nvml/, amd/, intel/, procattr/ are Phase 3-4
+├── driver/               L2 — IGpuDriver + DriverRegistry + all six vendor
+│                              cells — implemented; procattr/ is Phase 4.
+│                              posix/ and win32/ hold builtin_backends(), the
+│                              one answer in this layer that differs by OS
 ├── render/               L3 — tokens/, canvas, gradients
 └── ui/                   L4 — app, panels/, widgets/
 

@@ -11,15 +11,15 @@ with tracked progress.
 
 ## 📊 Progress Dashboard
 
-**Overall: 29 / 123 tasks complete (24%)**
+**Overall: 61 / 123 tasks complete (50%)**
 
-`████▓░░░░░░░░░░░░░░░` 24%
+`██████████░░░░░░░░░░` 50%
 
 | # | Phase | Done | Total | Status |
 | --- | --- | --- | --- | --- |
 | 1 | Foundation & Platform Abstraction | 17 | 17 | ✅ Complete |
 | 2 | Driver Abstraction & Runtime Loading | 12 | 12 | ✅ Complete |
-| 3 | Vendor Backends (NVIDIA / AMD / Intel) | 0 | 33 | ⬜ Not started |
+| 3 | Vendor Backends (NVIDIA / AMD / Intel) | 32 | 33 | 🚧 In progress |
 | 4 | Per-Process Attribution | 0 | 10 | ⬜ Not started |
 | 5 | Braille Rendering Engine | 0 | 12 | ⬜ Not started |
 | 6 | Terminal UI & Layout | 0 | 15 | ⬜ Not started |
@@ -133,6 +133,7 @@ gtop/
 │   │   ├── sys_info.hpp              #   hostname, OS version
 │   │   ├── process_control.hpp       #   names, signal/terminate
 │   │   ├── terminal_setup.{hpp,cpp}  #   VT mode, UTF-8, resize
+│   │   ├── pci_power.hpp             #   runtime PM state, without waking it
 │   │   ├── posix/                    #   one .cpp per header — chosen by CMake,
 │   │   └── win32/                    #   never by the preprocessor
 │   ├── core/
@@ -145,10 +146,13 @@ gtop/
 │   ├── driver/
 │   │   ├── gpu_driver.hpp            # IGpuDriver — the contract
 │   │   ├── driver_registry.{hpp,cpp} # discovery, ordering, dedup, lifecycle
-│   │   ├── nvml/                     # shared Linux+Windows
-│   │   ├── amd/   linux_sysfs.cpp · windows_adlx.cpp
-│   │   ├── intel/ linux_sysfs.cpp · windows_l0.cpp
-│   │   └── procattr/ drm_fdinfo.cpp · pdh_counters.cpp
+│   │   ├── posix/backends.cpp        # which backends exist, and in what order —
+│   │   ├── win32/backends.cpp        #   the one OS-dependent answer in this layer
+│   │   ├── sysfs/drm_sysfs.{hpp,cpp} # DRM + hwmon reader shared by AMD and Intel
+│   │   ├── nvml/  nvml_api · nvml_driver          # shared Linux+Windows
+│   │   ├── amd/   amdgpu_sysfs_driver · adlx_{api,driver}
+│   │   ├── intel/ intel_sysfs_driver · level_zero_{api,driver}
+│   │   └── procattr/ drm_fdinfo.cpp · pdh_counters.cpp   # Phase 4
 │   ├── render/  tokens/ · braille_canvas · gradient
 │   └── ui/      app · header_bar · engine_panel · thermal_panel · process_table
 └── tests/  unit/ · mock/ · smoke/ · fixtures/
@@ -327,25 +331,25 @@ Two design notes worth carrying into Phase 3:
 ## Phase 3 — Vendor Backends
 
 Six cells, three backends. Implement one fully before starting the next.
-**Progress: 0 / 33**
+**Progress: 32 / 33**
 
-### 3.1 NVIDIA — NVML (Linux + Windows, one implementation) · 0/12
+### 3.1 NVIDIA — NVML (Linux + Windows, one implementation) · 12/12
 
 
 Vendor `nvml.h` for types and enums. **Never link `libnvidia-ml` / `nvml.lib`.**
 
-- [ ] Vendor `nvml.h` into `third_party/vendor_headers/` (CUDA 13.1's copy is on this machine at `/usr/local/cuda-13.1/targets/x86_64-linux/include/nvml.h`)
-- [ ] Library candidates — Linux: `libnvidia-ml.so.1`, then `libnvidia-ml.so`. **Always try the versioned soname first** — the unversioned name exists only when a `-dev` package is installed, so relying on it fails on stock end-user systems
-- [ ] Library candidates — Windows: `nvml.dll` (System32 on modern drivers), then `%ProgramFiles%\NVIDIA Corporation\NVSMI\nvml.dll` for older ones
-- [ ] `nvmlInit_v2` / `nvmlShutdown` lifecycle wired into constructor/destructor
-- [ ] Static info: `nvmlDeviceGetName`, `GetUUID`, `GetPciInfo`, `nvmlSystemGetDriverVersion`
-- [ ] Utilization: `nvmlDeviceGetUtilizationRates` (core + memory controller)
-- [ ] Memory: `nvmlDeviceGetMemoryInfo_v2`, falling back to `nvmlDeviceGetMemoryInfo`
-- [ ] Power: `nvmlDeviceGetPowerUsage`, `nvmlDeviceGetEnforcedPowerLimit`
-- [ ] Thermals + fan: `nvmlDeviceGetTemperature`, `GetTemperatureThreshold`, `GetFanSpeed`
-- [ ] Clocks, encoder/decoder, PCIe: `GetClockInfo`, `GetEncoderUtilization`, `GetDecoderUtilization`, `GetPcieThroughput`
-- [ ] Throttle reasons: `nvmlDeviceGetCurrentClocksThrottleReasons` → `ThrottleFlags`
-- [ ] **Versioned-symbol fallback chain:** resolve `nvmlDeviceGetComputeRunningProcesses_v3` → `_v2` → v1 and select the **matching struct layout** for whichever resolved. NVML's ABI evolution is exactly why symbol absence must be non-fatal
+- [x] Vendor `nvml.h` into `third_party/vendor_headers/` (CUDA 13.1's copy is on this machine at `/usr/local/cuda-13.1/targets/x86_64-linux/include/nvml.h`)
+- [x] Library candidates — Linux: `libnvidia-ml.so.1`, then `libnvidia-ml.so`. **Always try the versioned soname first** — the unversioned name exists only when a `-dev` package is installed, so relying on it fails on stock end-user systems
+- [x] Library candidates — Windows: `nvml.dll` (System32 on modern drivers), then `%ProgramFiles%\NVIDIA Corporation\NVSMI\nvml.dll` for older ones
+- [x] `nvmlInit_v2` / `nvmlShutdown` lifecycle wired into constructor/destructor
+- [x] Static info: `nvmlDeviceGetName`, `GetUUID`, `GetPciInfo`, `nvmlSystemGetDriverVersion`
+- [x] Utilization: `nvmlDeviceGetUtilizationRates` (core + memory controller)
+- [x] Memory: `nvmlDeviceGetMemoryInfo_v2`, falling back to `nvmlDeviceGetMemoryInfo`
+- [x] Power: `nvmlDeviceGetPowerUsage`, `nvmlDeviceGetEnforcedPowerLimit`
+- [x] Thermals + fan: `nvmlDeviceGetTemperature`, `GetTemperatureThreshold`, `GetFanSpeed`
+- [x] Clocks, encoder/decoder, PCIe: `GetClockInfo`, `GetEncoderUtilization`, `GetDecoderUtilization`, `GetPcieThroughput`
+- [x] Throttle reasons: `nvmlDeviceGetCurrentClocksThrottleReasons` → `ThrottleFlags`
+- [x] **Versioned-symbol fallback chain:** resolve `nvmlDeviceGetComputeRunningProcesses_v3` → `_v2` → v1 and select the **matching struct layout** for whichever resolved. NVML's ABI evolution is exactly why symbol absence must be non-fatal
 
 Traps:
 - **Graphics and compute processes are separate calls.** Query both
@@ -355,44 +359,89 @@ Traps:
   enable. Per-process *memory* generally works unprivileged. Ship memory; show
   utilization only when `nvmlDeviceGetProcessUtilization` actually returns data.
 
-### 3.2 AMD · 0/11
+### 3.2 AMD · 10/11
 
 Now a fully testable backend — the second laptop makes this first-class.
 
 **Linux — `amdgpu` sysfs (no dlopen needed for the baseline):**
-- [ ] `/sys/class/drm/cardN/device/gpu_busy_percent` → core utilization
-- [ ] `/sys/class/drm/cardN/device/mem_info_vram_{total,used}` → VRAM
-- [ ] hwmon: `temp1_input` (edge), `temp2_input` (junction), `temp3_input` (memory)
-- [ ] hwmon: `power1_average` / `power1_cap`, `fan1_input`, `freq1_input`
-- [ ] `pp_dpm_sclk` / `pp_dpm_mclk` → current clock states
+- [x] `/sys/class/drm/cardN/device/gpu_busy_percent` → core utilization
+- [x] `/sys/class/drm/cardN/device/mem_info_vram_{total,used}` → VRAM
+- [x] hwmon: `temp1_input` (edge), `temp2_input` (junction), `temp3_input` (memory)
+- [x] hwmon: `power1_average` / `power1_cap`, `fan1_input`, `freq1_input`
+- [x] `pp_dpm_sclk` / `pp_dpm_mclk` → current clock states
 - [ ] Optional `librocm_smi64.so` via `DynamicLibrary` for anything sysfs omits
 
 **Windows — ADLX (`amdadlx64.dll`, legacy fallback `atiadlxx.dll`):**
-- [ ] Vendor ADLX headers; load `amdadlx64.dll` dynamically
-- [ ] Initialize via the ADLX C interface and acquire the GPU list
-- [ ] `IADLXGPUMetrics` → utilization, VRAM, temperature, hotspot, power, fan, clocks
-- [ ] Map ADLX metric-support queries onto `optional` — ADLX explicitly reports which metrics a given GPU supports, which lines up well with this design
-- [ ] Verify exact entry-point names against the ADLX SDK version you vendor; they are more volatile than NVML's
+- [x] Vendor ADLX headers; load `amdadlx64.dll` dynamically
+- [x] Initialize via the ADLX C interface and acquire the GPU list
+- [x] `IADLXGPUMetrics` → utilization, VRAM, temperature, hotspot, power, fan, clocks
+- [x] Map ADLX metric-support queries onto `optional` — ADLX explicitly reports which metrics a given GPU supports, which lines up well with this design
+- [x] Verify exact entry-point names against the ADLX SDK version you vendor; they are more volatile than NVML's
 
-### 3.3 Intel · 0/10
+### 3.3 Intel · 10/10
 
 **Linux — `i915` / `xe` sysfs.** *Paths below verified present on this machine (`card2`, `i915`):*
-- [ ] Detect driver variant by reading `/sys/class/drm/cardN/device/driver` (resolves to `i915` here; the `xe` driver uses a different node layout)
-- [ ] Frequency: `gt/gt0/rps_{cur,act,max}_freq_mhz` ✔ confirmed present
-- [ ] **Throttle reasons — a genuine bonus:** `gt/gt0/throttle_reason_{status,thermal,prochot,pl1,pl2,pl4,ratl,vr_tdc,vr_thermalert}` all present. Gives Intel the same throttle-badge treatment as NVML at no extra cost
-- [ ] Idle residency: `gt/gt0/rc6_residency_ms` — differencing yields a real "GPU idle %" to cross-check utilization
-- [ ] Power via `device/hwmon/hwmon*/power1_*` where exposed
-- [ ] Temperature via hwmon `temp1_input`. **Confirmed absent on this laptop** — `card2/device/hwmon/` is empty. Integrated parts frequently expose no GPU thermal sensor, making this the canonical test case for rendering `—` instead of a misleading `0 °C`
+- [x] Detect driver variant by reading `/sys/class/drm/cardN/device/driver` (resolves to `i915` here; the `xe` driver uses a different node layout)
+- [x] Frequency: `gt/gt0/rps_{cur,act,max}_freq_mhz` ✔ confirmed present
+- [x] **Throttle reasons — a genuine bonus:** `gt/gt0/throttle_reason_{status,thermal,prochot,pl1,pl2,pl4,ratl,vr_tdc,vr_thermalert}` all present. Gives Intel the same throttle-badge treatment as NVML at no extra cost
+- [x] Idle residency: `gt/gt0/rc6_residency_ms` — differencing yields a real "GPU idle %" to cross-check utilization
+- [x] Power via `device/hwmon/hwmon*/power1_*` where exposed
+- [x] Temperature via hwmon `temp1_input`. **Confirmed absent on this laptop** — `card2/device/hwmon/` is empty. Integrated parts frequently expose no GPU thermal sensor, making this the canonical test case for rendering `—` instead of a misleading `0 °C`
 
 **Windows — Level Zero Sysman (`ze_loader.dll`):**
-- [ ] Vendor `ze_api.h` / `zes_api.h`; load `ze_loader.dll` dynamically
-- [ ] `zesDeviceEnumEngineGroups` → per-engine activity (compute, media, copy)
-- [ ] `zesDeviceEnumPowerDomains`, `EnumTemperatureSensors`, `EnumMemoryModules`, `EnumFrequencyDomains`
-- [ ] Note: Level Zero Sysman also works on Linux — keep it as an optional Linux enhancement for richer compute metrics, but sysfs stays the dependency-free default path
+- [x] Vendor `ze_api.h` / `zes_api.h`; load `ze_loader.dll` dynamically
+- [x] `zesDeviceEnumEngineGroups` → per-engine activity (compute, media, copy)
+- [x] `zesDeviceEnumPowerDomains`, `EnumTemperatureSensors`, `EnumMemoryModules`, `EnumFrequencyDomains`
+- [x] Note: Level Zero Sysman also works on Linux — keep it as an optional Linux enhancement for richer compute metrics, but sysfs stays the dependency-free default path
 
 **Exit criteria (per cell):** `--dump-json` output matches `nvidia-smi` /
 `rocm-smi` / `intel_gpu_top` (Linux) or Task Manager / vendor control panel
 (Windows) within an eyeballed tolerance, under both idle and load.
+
+### Status — 32 / 33, and how far each cell is actually verified
+
+Both GPUs in this laptop now enumerate, which retires the clause deferred from
+Phase 2. `--dump-json` reports two devices ordered by PCI address: the RTX 3060
+through NVML and the Iris Xe through i915 sysfs.
+
+The six cells are not equally proven, and the difference matters more than the
+task count does:
+
+| Cell | State |
+| --- | --- |
+| NVIDIA / Linux | **Verified against `nvidia-smi`** — driver version, VRAM total, enforced power limit, slowdown threshold, both clocks, temperature, instantaneous draw and both throttle reasons all agree |
+| Intel / Linux | **Verified against raw sysfs** — RC6-derived utilization tracks a hand-computed figure over the same window to within a few tenths of a percent |
+| NVIDIA / Windows | Same source file as NVIDIA/Linux; only the library filename differs. Compiles and links. Never run |
+| AMD / Linux | Written against documented `amdgpu` sysfs. Compiles. **No AMD hardware here** |
+| AMD / Windows | Written against vendored ADLX headers. Cross-compiles at `-Werror`. Never run |
+| Intel / Windows | Written against vendored Level Zero headers. Cross-compiles at `-Werror`. Never run |
+
+The one unticked task is the optional `librocm_smi64.so` path. Everything gtop
+displays for AMD is already in sysfs, so ROCm SMI would add a dependency and no
+metric — and writing it blind, with neither AMD hardware nor a ROCm install to
+check it against, is how a backend that has never been correct gets marked done.
+It stays open until there is something to verify it with.
+
+Four things settled here that later phases inherit:
+
+- **`builtin_backends()` is now per-OS**, in `driver/posix/backends.cpp` and
+  `driver/win32/backends.cpp`, chosen by CMake. AMD and Intel are genuinely
+  different implementations on the two systems, so the list of backends differs;
+  making that a preprocessor branch would have put the first `#ifdef` outside
+  `src/platform/`.
+- **`platform::pci_power_state()` is the only way a backend asks about runtime
+  PM.** Linux reads sysfs `runtime_status`, Windows answers `kUnknown`. Every
+  backend routes through it, so no vendor code can accidentally resume a
+  sleeping dGPU to find out whether it is asleep.
+- **Rate metrics need two samples.** Intel has no busy-percent file (RC6
+  residency is differenced), and Level Zero reports engine busy-time and energy
+  counters rather than utilization and watts. `--dump-json` therefore primes and
+  discards one sample before emitting, which is what makes it comparable against
+  the vendor tools rather than merely valid.
+- **hwmon is shared, not duplicated.** `driver/sysfs/drm_sysfs.hpp` reads it once
+  for both AMD and Intel, because hwmon is a kernel-wide standard and both
+  drivers spell it identically. Same argument that makes DRM fdinfo shared
+  infrastructure in Phase 4.
 
 ---
 

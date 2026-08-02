@@ -9,17 +9,13 @@
 
 namespace gtop::driver {
 
-std::vector<Backend> builtin_backends() {
-    // Empty until Phase 3. The registry, the ordering, the de-duplication and
-    // the retry logic are all exercised by tests/mock/mock_driver.hpp in the
-    // meantime, so this list grows by one line per vendor rather than by a
-    // redesign:
-    //
-    //     {core::Vendor::kNvidia, "nvml", &nvml::probe},
-    //
-    // Order is significant — see the header.
-    return {};
-}
+// builtin_backends() is not here. It is the one function in this layer whose
+// answer depends on the operating system — the AMD and Intel backends are
+// different implementations on Linux and Windows, not one implementation with
+// two branches — so it lives in driver/posix/backends.cpp and
+// driver/win32/backends.cpp, and CMake picks the file. Same technique as the
+// platform layer, for the same reason: it keeps `#ifdef` out of driver code
+// entirely rather than relying on discipline to do it.
 
 DriverRegistry::DriverRegistry(std::vector<Backend> backends) {
     backends_.reserve(backends.size());

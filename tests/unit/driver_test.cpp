@@ -71,11 +71,41 @@ void test_pci_normalisation() {
 void test_no_backends_is_not_an_error() {
     std::puts("empty registry");
 
-    driver::DriverRegistry registry{driver::builtin_backends()};
+    // The machine with no supported GPU at all. Every operation still works and
+    // none of them reports a failure, because "nothing here" is an answer.
+    driver::DriverRegistry registry{std::vector<driver::Backend>{}};
     registry.probe(kT0);
     assert(registry.empty());
     assert(registry.sample_all(kT0).empty());
     assert(registry.retired_count() == 0);
+}
+
+void test_builtin_backends_are_well_formed() {
+    std::puts("builtin backend list");
+
+    // Deliberately says nothing about *which* backends are present: that is a
+    // fact about the operating system this ran on, and asserting it here would
+    // make the suite fail on the machines it most needs to pass on. What is
+    // checked is the part the registry relies on — every entry names itself and
+    // every entry is callable.
+    const std::vector<driver::Backend> backends = driver::builtin_backends();
+    for (const driver::Backend& backend : backends) {
+        assert(!backend.name.empty());
+        assert(static_cast<bool>(backend.probe));
+        assert(backend.vendor != core::Vendor::kUnknown);
+    }
+
+    // Probing the real list must be safe on any machine, including one with no
+    // driver installed — that is the whole runtime-loading guarantee, and this
+    // is the cheapest place to notice it broke.
+    driver::DriverRegistry registry{driver::builtin_backends()};
+    registry.probe(kT0);
+    const std::vector<core::DeviceReading> readings = registry.sample_all(kT0);
+    assert(readings.size() == registry.size());
+    for (const core::DeviceReading& reading : readings) {
+        assert(!reading.backend.empty());
+        assert(reading.sample.timestamp != core::TimePoint{});
+    }
 }
 
 void test_every_backend_contributes() {
@@ -305,6 +335,7 @@ int main() {
 
     test_pci_normalisation();
     test_no_backends_is_not_an_error();
+    test_builtin_backends_are_well_formed();
     test_every_backend_contributes();
     test_one_gpu_appears_once();
     test_uuid_identifies_a_device_without_an_address();

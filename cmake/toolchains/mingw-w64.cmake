@@ -24,6 +24,14 @@ if(GTOP_MINGW_ROOT)
     list(APPEND CMAKE_PROGRAM_PATH "${GTOP_MINGW_ROOT}/usr/bin" "${GTOP_MINGW_ROOT}/bin")
 endif()
 
+# CMake re-includes this file inside the compiler-check try_compile, and that
+# sub-project inherits only a whitelist of variables — not our cache entries.
+# Without this, find_program below succeeds for the main project and then fails
+# inside the ABI check, which reports as "not a full path to an existing
+# compiler tool" and points nowhere useful. Only bites when the toolchain is
+# reached through GTOP_MINGW_ROOT rather than PATH.
+list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES GTOP_MINGW_ROOT GTOP_MINGW_TRIPLE)
+
 # The Debian/Ubuntu packages ship -posix and -win32 threading variants and leave
 # the unsuffixed name to update-alternatives, which is absent from an extracted
 # prefix. -posix is the one that supports std::thread, which Phase 7 needs.

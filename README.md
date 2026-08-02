@@ -9,7 +9,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/status-pre--alpha-BF616A?style=for-the-badge&labelColor=2E3440" alt="Status: pre-alpha">
-  <img src="https://img.shields.io/badge/roadmap-29%2F123_tasks-3B4252?style=for-the-badge&labelColor=2E3440" alt="Roadmap: 29 of 123 tasks">
+  <img src="https://img.shields.io/badge/roadmap-61%2F123_tasks-3B4252?style=for-the-badge&labelColor=2E3440" alt="Roadmap: 61 of 123 tasks">
   <img src="https://img.shields.io/badge/license-GPL--3.0-A3BE8C?style=for-the-badge&logo=gnu&logoColor=white&labelColor=2E3440" alt="License: GPL-3.0">
 </p>
 
@@ -30,25 +30,24 @@
 
 ---
 
-> ### Project status: skeleton done, no telemetry yet
+> ### Project status: real telemetry, no interface yet
 >
-> Phases 1 and 2 are complete. The platform layer does runtime library loading,
-> host identity, process control, and terminal capability detection. Above it
-> sit the `IGpuDriver` contract, a device registry that de-duplicates and orders
-> GPUs and survives one disappearing mid-run, and `--dump-json`. Tests pass
-> under ASan and UBSan; the Windows build is verified by cross-compiling with
-> mingw-w64 — it compiles and links, FTXUI included, but has never been run on
-> Windows.
+> Phases 1 to 3 are complete. All six vendor/OS backends are written, every
+> vendor library is loaded at runtime, and `gtop --dump-json` reports actual
+> numbers off actual hardware.
 >
-> **No vendor backend exists yet**, so the registry finds nothing and the binary
-> says so. That is the empty-system path working, not a crash — but it does mean
-> nothing here reports a real number.
+> **There is no UI.** The Braille canvas is Phase 5 and the panels are Phase 6,
+> so the only usable output today is JSON. Everything below the mockup describes
+> the target, and there is nothing installable.
+>
+> How far each cell is proven differs, and that matters more than the task
+> count: NVIDIA on Linux is verified field-by-field against `nvidia-smi`, and
+> Intel on Linux against hand-computed sysfs. AMD on Linux, and both Windows
+> backends, compile clean — the Windows half through a mingw-w64 cross-build —
+> but have never been run. If you have that hardware, see *Contributing*.
 >
 > [`ROADMAP.md`](ROADMAP.md) carries the plan: architecture, 123 tracked tasks
 > across 9 phases, vendor API entry points, and the traps that come with each.
->
-> Everything below describes the target. The code does not do it yet, and there
-> is nothing installable. Watch the repo if you want to know when M2 lands.
 
 ---
 
@@ -192,7 +191,7 @@ Progress is tracked as 123 checkboxes in [`ROADMAP.md`](ROADMAP.md).
 | :--- | :--- | :--- |
 | 1 | Foundation & platform abstraction | `██████████` 17 / 17 |
 | 2 | Driver abstraction & runtime loading | `██████████` 12 / 12 |
-| 3 | Vendor backends — NVIDIA, AMD, Intel | `░░░░░░░░░░` 0 / 33 |
+| 3 | Vendor backends — NVIDIA, AMD, Intel | `█████████▓` 32 / 33 |
 | 4 | Per-process attribution | `░░░░░░░░░░` 0 / 10 |
 | 5 | Braille rendering engine | `░░░░░░░░░░` 0 / 12 |
 | 6 | Terminal UI & layout | `░░░░░░░░░░` 0 / 15 |
@@ -210,8 +209,12 @@ cmake --preset linux-release      # or windows-release
 cmake --build --preset linux-release
 ctest --preset linux-release
 ./build/linux-release/bin/gtop
-./build/linux-release/bin/gtop --dump-json   # headless: one sample, no terminal
+./build/linux-release/bin/gtop --dump-json   # headless: full reading, no terminal
 ```
+
+`--dump-json` is the whole interface for now, and it is what to compare against
+`nvidia-smi`, `rocm-smi` or `intel_gpu_top`. It exits 0 with an empty `devices`
+array on a machine with no GPU.
 
 There is also a `windows-mingw` preset that cross-compiles the Windows build
 from Linux with mingw-w64. It is how the Win32 sources are kept honest in the
@@ -230,11 +233,14 @@ coverage, so on Windows prefer Cascadia Mono.
 
 ## Contributing
 
-The most useful contribution right now is hardware access. The roadmap covers six
-vendor/OS combinations, and each needs validation against the vendor's own
-tooling. If you have an AMD card on Windows or an Intel Arc discrete GPU, a
-`--dump-json` capture compared against `rocm-smi` or Task Manager helps more than
-a patch would.
+The most useful contribution right now is hardware access. All six vendor/OS
+backends are written; four of them have never executed a single instruction.
+
+If you have **an AMD GPU on Linux**, **any GPU on Windows**, or **an Intel Arc
+discrete card**, run `gtop --dump-json` and compare it against `rocm-smi`,
+`intel_gpu_top`, Task Manager or the vendor control panel. A capture with the
+two side by side — especially one where they disagree — is worth more than a
+patch, because the code is written and the open question is whether it is right.
 
 Otherwise, start with [`ROADMAP.md`](ROADMAP.md): pick an unchecked task and open
 an issue saying so.
